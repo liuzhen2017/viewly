@@ -96,6 +96,11 @@ async function removeEp(e) {
       <el-button type="primary" @click="openCreate">{{ t('newDrama') }}</el-button>
     </div>
 
+    <div v-if="keyword" style="margin-bottom:10px;display:flex;align-items:center;gap:8px">
+      <el-tag closable @close="keyword = ''; page = 1; load()">
+        {{ t('filteredBy') }}: {{ keyword }}
+      </el-tag>
+    </div>
     <el-table :data="list" size="small">
       <el-table-column :label="t('cover')" width="70">
         <template #default="{ row }"><img :src="row.cover" style="width:44px;border-radius:4px" /></template>
@@ -116,7 +121,7 @@ async function removeEp(e) {
         <template #default="{ row }">
           <el-button size="small" @click="openEpisodes(row)">{{ t('colEpisodes') }}</el-button>
           <el-button size="small" @click="openEdit(row)">{{ t('edit') }}</el-button>
-          <el-button size="small" type="danger" @click="remove(row)">{{ t('del') }}</el-button>
+          <el-button size="small" type="danger" class="row-del" @click="remove(row)">{{ t('del') }}</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -164,7 +169,7 @@ async function removeEp(e) {
       <el-table-column :label="t('actions')" width="140">
         <template #default="{ row }">
           <el-button size="small" @click="openEpEdit(row)">{{ t('edit') }}</el-button>
-          <el-button size="small" type="danger" @click="removeEp(row)">{{ t('del') }}</el-button>
+          <el-button size="small" type="danger" class="row-del" @click="removeEp(row)">{{ t('del') }}</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -185,3 +190,7 @@ async function removeEp(e) {
     </template>
   </el-dialog>
 </template>
+
+<style scoped>
+:deep(.el-table .row-del) { margin-left: 14px; }
+</style>

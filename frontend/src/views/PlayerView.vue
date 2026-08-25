@@ -47,6 +47,12 @@ async function tryPlay(epId) {
     loadVideo(r.video_url)
   } catch (e) {
     if (e.code === 402 || e.message === 'locked') {
+      // stop and detach any previous episode's stream so the unlock
+      // overlay is guaranteed to be visible on sequential navigation
+      const v = videoEl.value
+      if (v) {
+        try { v.pause(); v.removeAttribute('src'); v.load() } catch {}
+      }
       showUnlock.value = true
     } else {
       window.$toast(e.message)
@@ -117,7 +123,7 @@ function fmt(s) {
 <template>
   <div class="page player-page" v-if="drama">
     <div class="topbar">
-      <button class="back" @click="$router.push(`/drama/${drama.id}`)">‹</button>
+      <button class="back" @click="$router.replace(`/drama/${drama.id}`)">‹</button>
       <div class="title">
         <div class="t">{{ drama.title }}</div>
         <div class="ep-label" v-if="currentEp">Ep {{ currentEp.ep_index }} · {{ currentEp.title }}</div>
@@ -135,14 +141,14 @@ function fmt(s) {
         @timeupdate="onTime"
         @ended="onEnded"
       ></video>
-      <div v-if="!videoEl?.src" class="placeholder">
+      <div v-if="!videoEl?.src || showUnlock" class="placeholder">
         <img v-if="currentEp" :src="drama.cover" alt="" />
         <div class="lock-overlay" v-if="showUnlock">
           <div class="lock-icon">🔒</div>
           <div class="lock-text">Ep {{ currentEp?.ep_index }} requires {{ currentEp?.price_coins }} coins</div>
           <div class="lock-actions">
             <button class="btn btn-primary" :disabled="unlockBusy" @click="confirmUnlock">
-              Unlock · {{ currentEp?.price_coins }} 🪙
+              {{ unlockBusy ? '⏳ Unlocking…' : 'Unlock · ' + currentEp?.price_coins + ' 🪙' }}
             </button>
             <router-link to="/recharge" class="btn btn-gold">Top Up</router-link>
           </div>
@@ -167,7 +173,13 @@ function fmt(s) {
       >{{ e.ep_index }}<span v-if="!e.accessible" class="lk">🔒</span></button>
     </div>
   </div>
-  <div v-else class="empty">Loading…</div>
+  <div v-else class="page">
+    <div class="skel-video"></div>
+    <div class="skel-bar" style="width:40%"></div>
+    <div class="skel-grid">
+      <div v-for="i in 6" :key="i" class="skel-ep"></div>
+    </div>
+  </div>
 </template>
 
 <style scoped>
@@ -216,4 +228,9 @@ function fmt(s) {
 .ep .lk { font-size: 9px; margin-left: 2px; }
 .ep.locked { color: var(--gold); }
 .ep.current { outline: 2px solid var(--accent); }
+.skel-video { aspect-ratio: 16/9; background: var(--bg-elev); border-radius: 0; animation: pulse 1.2s ease-in-out infinite; }
+.skel-bar { height: 14px; background: var(--bg-elev); border-radius: 6px; margin: 12px 2px; animation: pulse 1.2s ease-in-out infinite; }
+.skel-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+.skel-ep { height: 38px; background: var(--bg-elev); border-radius: 9px; animation: pulse 1.2s ease-in-out infinite; }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .45; } }
 </style>

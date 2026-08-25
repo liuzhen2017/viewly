@@ -76,6 +76,7 @@ async function share() {
       <div class="actions">
         <button class="btn btn-ghost" @click="toggle('follow')">{{ drama.is_followed ? '✓ Following' : '+ Follow' }}</button>
         <button class="btn btn-ghost" @click="toggle('like')">{{ drama.is_liked ? '❤️ Liked' : '🤍 Like' }}</button>
+        <button class="btn btn-ghost" @click="toggle('favorite')">{{ drama.is_favorite ? '⭐ Favorited' : '☆ Favorite' }}</button>
         <button class="btn btn-ghost" @click="share">↗ Share</button>
       </div>
 
@@ -105,7 +106,13 @@ async function share() {
       </div>
     </div>
     <div v-else-if="error" class="empty">{{ error }}</div>
-    <div v-else class="empty">Loading…</div>
+    <div v-else class="skel-wrap">
+      <div class="skel-hero">
+        <div class="skel-poster"></div>
+        <div class="skel-lines"><div class="skel-line" style="width:70%"></div><div class="skel-line" style="width:45%"></div><div class="skel-line" style="width:90%"></div></div>
+      </div>
+      <div class="skel-eps"><div v-for="i in 5" :key="i" class="skel-ep"></div></div>
+    </div>
   </div>
 </template>
 
@@ -144,4 +151,12 @@ async function share() {
   font-size: 13px;
   color: var(--muted);
 }
+/* skeletons */
+.skel-poster { width: 118px; height: 157px; border-radius: 12px; background: var(--bg-elev); animation: pulse 1.2s ease-in-out infinite; }
+.skel-hero { display: flex; gap: 14px; margin-top: 18px; }
+.skel-lines { flex: 1; display: flex; flex-direction: column; gap: 10px; padding-top: 8px; }
+.skel-line { height: 14px; border-radius: 6px; background: var(--bg-elev); animation: pulse 1.2s ease-in-out infinite; }
+.skel-eps { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 24px; }
+.skel-ep { height: 48px; border-radius: 10px; background: var(--bg-elev); animation: pulse 1.2s ease-in-out infinite; }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .45; } }
 </style>

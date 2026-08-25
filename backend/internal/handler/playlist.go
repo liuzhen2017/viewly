@@ -13,10 +13,13 @@ import (
 // GET /api/favorites — the Playlist tab.
 func (h *Handler) FavoriteList(c *gin.Context) {
 	u := c.MustGet("user").(*model.User)
-	list := h.cards(h.cardQuery(c).
+	list, err := h.cards(h.cardQuery(c).
 		Joins("JOIN favorites f ON f.drama_id = d.id AND f.user_id = ?", u.ID).
 		Where("d.status = 1").
 		Order("f.id DESC"))
+	if dbFailed(c, err) {
+		return
+	}
 	ok(c, list)
 }
 

@@ -78,6 +78,7 @@ export const messages = {
 
     // dramas
     searchTitle: 'Search title',
+    filteredBy: 'Filtered',
     newDrama: '+ New Drama',
     colCategory: 'Category',
     colEpisodes: 'Episodes',
@@ -228,6 +229,7 @@ export const messages = {
     contentSummary: '{d} 部剧 · {e} 集',
 
     searchTitle: '搜索剧名',
+    filteredBy: '已过滤',
     newDrama: '+ 新增剧目',
     colCategory: '分类',
     colEpisodes: '集数',

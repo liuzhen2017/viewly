@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 	"sync"
@@ -35,10 +36,22 @@ func (h *Handler) cardQuery(c *gin.Context) *gorm.DB {
 			(SELECT COUNT(*) FROM episodes e WHERE e.drama_id = d.id AND e.status = 1) AS episodes`)
 }
 
-func (h *Handler) cards(q *gorm.DB) []dramaCard {
+func (h *Handler) cards(q *gorm.DB) ([]dramaCard, error) {
 	out := make([]dramaCard, 0) // never nil: JSON must be [], not null
-	q.Scan(&out)
-	return out
+	if err := q.Scan(&out).Error; err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// dbFailed centralizes the "database unavailable" response so a broken DB
+// connection surfaces as 5xx instead of silent empty lists.
+func dbFailed(c *gin.Context, err error) bool {
+	if err == nil {
+		return false
+	}
+	fail(c, http.StatusInternalServerError, "database unavailable")
+	return true
 }
 
 // GET /api/home — everything the home screen needs in one shot.
@@ -56,22 +69,28 @@ func (h *Handler) Home(c *gin.Context) {
 		cats      []model.Category
 		channelDs []dramaCard
 		wg        sync.WaitGroup
+		errs      [6]error
 	)
 	tid := h.tID(c)
 	wg.Add(6)
 	go func() {
 		defer wg.Done()
-		h.DB.Table("banners b").
+		errs[0] = h.DB.Table("banners b").
 			Select("b.*, d.title AS drama_title").
 			Joins("LEFT JOIN dramas d ON d.id = b.drama_id AND d.status = 1").
-			Where("b.status = 1 AND b.tenant_id = ?", tid).Order("b.sort ASC, b.id ASC").Limit(6).Scan(&bannerRows)
+			Where("b.status = 1 AND b.tenant_id = ?", tid).Order("b.sort ASC, b.id ASC").Limit(6).Scan(&bannerRows).Error
 	}()
-	go func() { defer wg.Done(); featured = h.cards(h.cardQuery(c).Where("d.status = 1 AND d.is_featured = 1").Order("d.sort ASC, d.id DESC").Limit(9)) }()
-	go func() { defer wg.Done(); newRel = h.cards(h.cardQuery(c).Where("d.status = 1").Order("d.created_at DESC, d.id DESC").Limit(9)) }()
-	go func() { defer wg.Done(); hot = h.cards(h.cardQuery(c).Where("d.status = 1").Order("d.views DESC").Limit(9)) }()
-	go func() { defer wg.Done(); h.DB.Where("status = 1 AND tenant_id = ?", tid).Order("sort ASC, id ASC").Find(&cats) }()
-	go func() { defer wg.Done(); channelDs = h.cards(h.cardQuery(c).Where("d.status = 1").Order("d.is_hot DESC, d.views DESC").Limit(120)) }()
+	go func() { defer wg.Done(); featured, errs[1] = h.cards(h.cardQuery(c).Where("d.status = 1 AND d.is_featured = 1").Order("d.sort ASC, d.id DESC").Limit(9)) }()
+	go func() { defer wg.Done(); newRel, errs[2] = h.cards(h.cardQuery(c).Where("d.status = 1").Order("d.created_at DESC, d.id DESC").Limit(9)) }()
+	go func() { defer wg.Done(); hot, errs[3] = h.cards(h.cardQuery(c).Where("d.status = 1").Order("d.views DESC").Limit(9)) }()
+	go func() { defer wg.Done(); errs[4] = h.DB.Where("status = 1 AND tenant_id = ?", tid).Order("sort ASC, id ASC").Find(&cats).Error }()
+	go func() { defer wg.Done(); channelDs, errs[5] = h.cards(h.cardQuery(c).Where("d.status = 1").Order("d.is_hot DESC, d.views DESC").Limit(120)) }()
 	wg.Wait()
+	for _, e := range errs {
+		if dbFailed(c, e) {
+			return
+		}
+	}
 
 	// banner drama titles resolved by the JOIN above
 	bannerOut := make([]gin.H, 0, len(bannerRows))
@@ -116,7 +135,9 @@ func (h *Handler) Home(c *gin.Context) {
 // GET /api/categories
 func (h *Handler) Categories(c *gin.Context) {
 	var cats []model.Category
-	h.DB.Where("status = 1 AND tenant_id = ?", h.tID(c)).Order("sort ASC, id ASC").Find(&cats)
+	if dbFailed(c, h.DB.Where("status = 1 AND tenant_id = ?", h.tID(c)).Order("sort ASC, id ASC").Find(&cats).Error) {
+		return
+	}
 	ok(c, cats)
 }
 
@@ -145,8 +166,13 @@ func (h *Handler) DramaList(c *gin.Context) {
 	}
 
 	var total int64
-	h.DB.Table("dramas").Where("status = 1 AND tenant_id = ?", h.tID(c)).Count(&total)
-	list := h.cards(q.Offset(offset(page, size)).Limit(size))
+	if dbFailed(c, h.DB.Table("dramas").Where("status = 1 AND tenant_id = ?", h.tID(c)).Count(&total).Error) {
+		return
+	}
+	list, err := h.cards(q.Offset(offset(page, size)).Limit(size))
+	if dbFailed(c, err) {
+		return
+	}
 	ok(c, gin.H{"list": list, "page": page, "size": size, "total": total})
 }
 
@@ -159,12 +185,18 @@ func (h *Handler) DramaDetail(c *gin.Context) {
 	}
 	var d model.Drama
 	if err := h.DB.Where("id = ? AND status = 1 AND tenant_id = ?", id, h.tID(c)).First(&d).Error; err != nil {
-		fail(c, http.StatusNotFound, "drama not found")
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			fail(c, http.StatusNotFound, "drama not found")
+		} else {
+			fail(c, http.StatusInternalServerError, "database unavailable")
+		}
 		return
 	}
 
 	var eps []model.Episode
-	h.DB.Where("drama_id = ? AND status = 1", id).Order("ep_index ASC").Find(&eps)
+	if dbFailed(c, h.DB.Where("drama_id = ? AND status = 1", id).Order("ep_index ASC").Find(&eps).Error) {
+		return
+	}
 
 	u, _ := c.Get("user")
 	isVip := false
@@ -227,7 +259,10 @@ func (h *Handler) Search(c *gin.Context) {
 		ok(c, []any{})
 		return
 	}
-	list := h.cards(h.cardQuery(c).Where("d.status = 1 AND d.title LIKE ?", "%"+kw+"%").Order("d.views DESC").Limit(30))
+	list, err := h.cards(h.cardQuery(c).Where("d.status = 1 AND d.title LIKE ?", "%"+kw+"%").Order("d.views DESC").Limit(30))
+	if dbFailed(c, err) {
+		return
+	}
 	ok(c, list)
 }
 
@@ -247,7 +282,7 @@ func (h *Handler) Feed(c *gin.Context) {
 		Views       int64  `json:"views"`
 	}
 	var items []feedItem
-	h.DB.Raw(`
+	if dbFailed(c, h.DB.Raw(`
 		SELECT e.id AS episode_id, e.ep_index, CONCAT(d.title, ' - Ep ', e.ep_index) AS ep_title,
 		       e.price_coins, d.id AS drama_id, d.title AS drama_title, d.cover, d.tags,
 		       COALESCE(c.name, '') AS category, d.views
@@ -256,7 +291,9 @@ func (h *Handler) Feed(c *gin.Context) {
 		LEFT JOIN categories c ON c.id = d.category_id
 		WHERE e.status = 1 AND e.ep_index = 1 AND e.tenant_id = ?
 		ORDER BY d.is_hot DESC, d.views DESC, d.id DESC
-		LIMIT ? OFFSET ?`, h.tID(c), 10, offset(page, 10)).Scan(&items)
+		LIMIT ? OFFSET ?`, h.tID(c), 10, offset(page, 10)).Scan(&items).Error) {
+		return
+	}
 
 	u, _ := c.Get("user")
 	isVip := false

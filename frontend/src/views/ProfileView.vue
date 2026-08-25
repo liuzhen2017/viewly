@@ -15,7 +15,7 @@ import { store, fmtCoins } from '../store'
           {{ store.user?.nickname || 'Guest' }}
           <span v-if="store.user?.is_vip" class="vip">VIP</span>
         </div>
-        <div class="uid">User ID: {{ store.user?.id || '—' }}</div>
+        <div class="uid">{{ store.user?.email || 'User ID: ' + (store.user?.id || '—') }}</div>
       </div>
       <router-link v-if="!store.user?.email" to="/login" class="btn btn-primary btn-sm">Sign In</router-link>
     </div>

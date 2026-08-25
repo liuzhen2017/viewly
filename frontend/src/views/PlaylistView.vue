@@ -16,7 +16,7 @@ onMounted(async () => {
       <DramaCard v-for="d in list" :key="d.id" :drama="d" />
     </div>
     <div v-else-if="list" class="empty">
-      No favorites yet.<br />Tap ♥ on a drama to add it here.
+      No favorites yet.<br />Open a drama and tap "☆ Favorite" to add it here.
     </div>
     <div v-else class="empty">Loading…</div>
   </div>

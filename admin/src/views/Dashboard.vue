@@ -32,7 +32,9 @@ const cards = computed(() => s.value ? [
     <el-card style="margin-top:14px">
       <template #header>{{ t('last7days') }}</template>
       <el-table :data="s.revenue_series" size="small">
-        <el-table-column prop="day" :label="t('colDay')" />
+        <el-table-column :label="t('colDay')">
+          <template #default="{ row }">{{ new Date(row.day).toLocaleDateString() }}</template>
+        </el-table-column>
         <el-table-column prop="orders" :label="t('colOrders')" width="120" />
         <el-table-column :label="t('colRevenue')">
           <template #default="{ row }">{{ money(row.cents) }}</template>

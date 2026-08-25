@@ -43,9 +43,12 @@ func (h *Handler) Transactions(c *gin.Context) {
 // GET /api/store — coin packages + VIP plans (tenant-scoped).
 func (h *Handler) Store(c *gin.Context) {
 	var packs []model.CoinPackage
-	h.DB.Where("status = 1 AND tenant_id = ?", h.tID(c)).Order("sort ASC, id ASC").Find(&packs)
 	var plans []model.VipPlan
-	h.DB.Where("status = 1 AND tenant_id = ?", h.tID(c)).Order("sort ASC, id ASC").Find(&plans)
+	errP := h.DB.Where("status = 1 AND tenant_id = ?", h.tID(c)).Order("sort ASC, id ASC").Find(&packs).Error
+	errV := h.DB.Where("status = 1 AND tenant_id = ?", h.tID(c)).Order("sort ASC, id ASC").Find(&plans).Error
+	if dbFailed(c, errP) || dbFailed(c, errV) {
+		return
+	}
 	ok(c, gin.H{"coin_packages": packs, "vip_plans": plans})
 }
 

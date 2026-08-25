@@ -192,9 +192,13 @@ func (h *Handler) AdminDramaList(c *gin.Context) {
 		q = q.Where("d.title LIKE ?", "%"+kw+"%")
 	}
 	var total int64
-	h.DB.Table("dramas").Where("tenant_id = ?", h.tID(c)).Count(&total)
+	if dbFailed(c, h.DB.Table("dramas").Where("tenant_id = ?", h.tID(c)).Count(&total).Error) {
+		return
+	}
 	var list []map[string]any
-	q.Order("d.id DESC").Offset(offset(page, size)).Limit(size).Find(&list)
+	if dbFailed(c, q.Order("d.id DESC").Offset(offset(page, size)).Limit(size).Find(&list).Error) {
+		return
+	}
 	ok(c, gin.H{"list": list, "page": page, "size": size, "total": total})
 }
 
@@ -549,9 +553,13 @@ func (h *Handler) AdminUserList(c *gin.Context) {
 		q = q.Where("nickname LIKE ? OR email LIKE ?", like, like)
 	}
 	var total int64
-	q.Count(&total)
+	if dbFailed(c, q.Count(&total).Error) {
+		return
+	}
 	var users []model.User
-	q.Order("id DESC").Offset(offset(page, size)).Limit(size).Find(&users)
+	if dbFailed(c, q.Order("id DESC").Offset(offset(page, size)).Limit(size).Find(&users).Error) {
+		return
+	}
 	out := make([]gin.H, 0, len(users))
 	for _, u := range users {
 		v := h.userView(&u)
@@ -614,9 +622,13 @@ func (h *Handler) AdminOrderList(c *gin.Context) {
 		q = q.Where("status = ?", s)
 	}
 	var total int64
-	q.Count(&total)
+	if dbFailed(c, q.Count(&total).Error) {
+		return
+	}
 	var list []model.Order
-	q.Order("id DESC").Offset(offset(page, size)).Limit(size).Find(&list)
+	if dbFailed(c, q.Order("id DESC").Offset(offset(page, size)).Limit(size).Find(&list).Error) {
+		return
+	}
 	ok(c, gin.H{"list": list, "page": page, "size": size, "total": total})
 }
 
