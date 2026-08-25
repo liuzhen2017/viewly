@@ -102,7 +102,7 @@ func (h *Handler) Rewards(c *gin.Context) {
 		doneMap[r.TaskKey] = true
 	}
 
-	tasks := make([]gin.H, 0, len(taskDefs))
+	tasks := make([]gin.H, 0, len(taskDefs)+1)
 	for _, def := range taskDefs {
 		var progress, rewarded int
 		if def.OneTime {
@@ -118,6 +118,22 @@ func (h *Handler) Rewards(c *gin.Context) {
 			"threshold": def.Threshold, "one_time": def.OneTime, "group": def.Group,
 			"progress": progress, "rewarded": rewarded,
 			"claimable": rewarded == 0 && (def.Threshold == 0 || progress >= def.Threshold),
+		})
+	}
+
+	// rewarded-ad card is config-driven (not a static task): progress counts
+	// ads watched today; "claimable" is left false — watching is the claim.
+	if t := h.tenant(c); t != nil && (t.RewardedAdMode == "client" || t.RewardedAdMode == "ssv") {
+		watched := 0
+		if r, ex := dailyMap["watch_ad"]; ex {
+			watched = r.Progress
+		}
+		tasks = append(tasks, gin.H{
+			"key": "watch_ad", "title": "Watch Video Ad", "coins": t.RewardedAdCoins,
+			"threshold": t.RewardedAdDailyLimit, "one_time": false, "group": "ad",
+			"progress": watched, "rewarded": 0,
+			"claimable": false, "mode": t.RewardedAdMode,
+			"capped": watched >= t.RewardedAdDailyLimit,
 		})
 	}
 

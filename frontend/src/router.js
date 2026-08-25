@@ -31,5 +31,7 @@ export const router = createRouter({
     { path: '/recharge', name: 'recharge', component: RechargeView },
     { path: '/login', name: 'login', component: LoginView },
     { path: '/history', name: 'history', component: () => import('./views/HistoryView.vue') },
+    { path: '/privacy', name: 'privacy', component: () => import('./views/LegalView.vue') },
+    { path: '/terms', name: 'terms', component: () => import('./views/LegalView.vue') },
   ],
 })

@@ -66,6 +66,9 @@ export const admin = {
   tenants: () => req('/api/admin/tenants'),
   createTenant: (t) => req('/api/admin/tenants', { method: 'POST', body: t }),
 
+  adSettings: () => req('/api/admin/ad-settings'),
+  saveAdSettings: (s) => req('/api/admin/ad-settings', { method: 'PUT', body: s }),
+
   orders: (page = 1, status = '') => req(`/api/admin/orders?page=${page}&size=20&status=${status}`),
   markPaid: (orderNo) => req(`/api/admin/orders/${orderNo}/mark-paid`, { method: 'POST' }),
 }

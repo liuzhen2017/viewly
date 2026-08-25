@@ -38,6 +38,9 @@ func Setup(db *gorm.DB, cfg *config.Config, h *handler.Handler) *gin.Engine {
 	// local static assets (seed posters etc.)
 	r.Static("/static", "./static")
 
+	// per-tenant AdSense authorization file, resolved from the Host header
+	r.GET("/ads.txt", h.AdsTxt)
+
 	r.GET("/healthz", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok"})
 	})
@@ -63,6 +66,7 @@ func Setup(db *gorm.DB, cfg *config.Config, h *handler.Handler) *gin.Engine {
 		optional.GET("/search", h.Search)
 		optional.GET("/feed", h.Feed)
 		optional.GET("/store", h.Store)
+		optional.GET("/ad-config", h.AdConfig)
 		optional.GET("/episodes/:id/play", h.Play)
 	}
 
@@ -81,6 +85,11 @@ func Setup(db *gorm.DB, cfg *config.Config, h *handler.Handler) *gin.Engine {
 		user.POST("/rewards/checkin", h.Checkin)
 		user.POST("/rewards/tasks/:key/claim", h.ClaimTask)
 		user.POST("/rewards/tasks/share/progress", h.ShareProgress)
+		user.POST("/rewards/watch-ad/complete", h.WatchAdComplete)
+
+		// payment/ad provider webhooks are public; auth is signature-based
+		api.POST("/webhooks/stripe", h.StripeWebhook)
+		api.GET("/webhooks/admob/ssv", h.AdMobSSV)
 
 		user.GET("/wallet", h.Wallet)
 		user.GET("/wallet/transactions", h.Transactions)
@@ -88,7 +97,6 @@ func Setup(db *gorm.DB, cfg *config.Config, h *handler.Handler) *gin.Engine {
 		user.GET("/orders", h.MyOrders)
 		user.GET("/orders/:order_no", h.OrderStatus)
 		user.POST("/orders/:order_no/mock-pay", h.MockPay)
-		user.POST("/webhooks/stripe", h.StripeWebhook)
 
 		user.GET("/favorites", h.FavoriteList)
 		user.POST("/favorites/:dramaID", h.FavoriteToggle)
@@ -108,6 +116,10 @@ func Setup(db *gorm.DB, cfg *config.Config, h *handler.Handler) *gin.Engine {
 		// platform-level: provision tenant sites (super admin only)
 		adminAuth.GET("/tenants", middleware.RequireSuper(), h.AdminTenantsList)
 		adminAuth.POST("/tenants", middleware.RequireSuper(), h.AdminTenantCreate)
+
+		// ad monetization settings for the managed tenant
+		adminAuth.GET("/ad-settings", h.AdSettingsGet)
+		adminAuth.PUT("/ad-settings", h.AdSettingsUpdate)
 
 		adminAuth.GET("/dramas", h.AdminDramaList)
 		adminAuth.POST("/dramas", h.AdminDramaCreate)

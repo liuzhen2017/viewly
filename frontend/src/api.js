@@ -92,6 +92,8 @@ export const api = {
   rewards: () => request('/api/rewards'),
   checkin: () => request('/api/rewards/checkin', { method: 'POST' }),
   claimTask: (key) => request(`/api/rewards/tasks/${key}/claim`, { method: 'POST' }),
+  watchAdComplete: () => request('/api/rewards/watch-ad/complete', { method: 'POST' }),
+  adConfig: () => request('/api/ad-config'),
   wallet: () => request('/api/wallet'),
   transactions: (page = 1) => request(`/api/wallet/transactions?page=${page}`),
 

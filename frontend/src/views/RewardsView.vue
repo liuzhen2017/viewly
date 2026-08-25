@@ -1,10 +1,14 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { api } from '../api'
 import { store, refreshMe, fmtCoins } from '../store'
 
 const data = ref(null)
 const busy = ref(false)
+const adPlaying = ref(false)
+const adCountdown = ref(0)
+
+const adTask = computed(() => (data.value?.tasks || []).find(t => t.group === 'ad'))
 
 onMounted(load)
 
@@ -42,6 +46,41 @@ async function claim(t) {
 
 function toastGo() {
   window.$toast('Watch / share / like dramas to complete the task')
+}
+
+// Rewarded video entry point. Dev builds simulate a 5s ad; production H5
+// should swap simulateAd() for a real rewarded SDK (Google Ad Manager web
+// SDK / AppLovin MAX web) and call complete() from its reward callback.
+function watchAd() {
+  if (!adTask.value || adTask.value.capped || busy.value) return
+  simulateAd(() => completeAd())
+}
+
+function simulateAd(onDone) {
+  adPlaying.value = true
+  adCountdown.value = 5
+  const timer = setInterval(() => {
+    adCountdown.value--
+    if (adCountdown.value <= 0) {
+      clearInterval(timer)
+      adPlaying.value = false
+      onDone()
+    }
+  }, 1000)
+}
+
+async function completeAd() {
+  busy.value = true
+  try {
+    const r = await api.watchAdComplete()
+    window.$toast(`+${r.coins} coins! (${r.watched}/${r.limit} today)`)
+    await Promise.all([load(), refreshMe()])
+  } catch (e) {
+    window.$toast(e.message)
+    await load()
+  } finally {
+    busy.value = false
+  }
 }
 </script>
 
@@ -103,11 +142,38 @@ function toastGo() {
       </div>
     </div>
 
+    <!-- rewarded ad card -->
+    <template v-if="adTask">
+      <div class="section-head"><h3>📺 Free Coins</h3></div>
+      <div class="card task ad-card">
+        <div class="ti">
+          <div class="tt">📺 Watch Video Ad</div>
+          <div class="tm">{{ adTask.progress }}/{{ adTask.threshold }} watched today</div>
+        </div>
+        <div class="tr">
+          <span class="coin">+{{ adTask.coins }}</span>
+          <button v-if="adTask.capped" class="btn btn-sm" disabled>Done today</button>
+          <button v-else class="btn btn-gold btn-sm" :disabled="busy" @click="watchAd">Watch ▶</button>
+        </div>
+      </div>
+    </template>
+
     <div class="rules">
       <p><b>Welfare Description</b></p>
       <p>1. Sign in daily to claim benefits (7-day cycle).</p>
       <p>2. Complete tasks to claim coin rewards. Tasks reset daily.</p>
       <p>3. Coins can unlock premium episodes.</p>
+    </div>
+
+    <!-- simulated rewarded ad player -->
+    <div v-if="adPlaying" class="ad-overlay">
+      <div class="ad-box">
+        <div class="ad-video">
+          <div class="ad-placeholder">Ad playing…</div>
+          <div class="ad-count">{{ adCountdown }}s</div>
+        </div>
+        <p class="ad-note">Reward unlocks after the ad finishes</p>
+      </div>
     </div>
   </div>
   <div v-else class="empty" style="padding-top:120px">Loading…</div>
@@ -146,4 +212,25 @@ function toastGo() {
 .tr { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
 .rules { color: var(--muted); font-size: 12px; line-height: 1.9; margin-top: 18px; }
 .rules p { margin: 0; }
+.ad-card { border: 1px solid #3d2d0c; }
+.ad-overlay {
+  position: fixed; inset: 0; z-index: 120;
+  background: rgba(0, 0, 0, .8);
+  display: flex; align-items: center; justify-content: center;
+}
+.ad-box { width: 82%; max-width: 340px; }
+.ad-video {
+  position: relative;
+  aspect-ratio: 4/3;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #1f2937, #111827);
+  display: flex; align-items: center; justify-content: center;
+}
+.ad-placeholder { color: #9ca3af; font-size: 15px; }
+.ad-count {
+  position: absolute; top: 10px; right: 12px;
+  background: rgba(0,0,0,.6); border-radius: 8px;
+  padding: 3px 9px; font-size: 12px; font-weight: 700;
+}
+.ad-note { text-align: center; color: var(--muted); font-size: 12px; margin-top: 10px; }
 </style>

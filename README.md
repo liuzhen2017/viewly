@@ -30,6 +30,16 @@ Viewly/
 
 预置账号：平台超管 `admin / admin123`（任意租户域名可登录）；演示租户 `demo / demo123`（`demo.localhost:5174`）。
 
+## 广告变现（Google AdSense / AdMob）
+
+每租户独立配置自己的广告账号（收入归各自），平台只做路由与验证：
+
+- **AdSense（H5 展示广告）**：后台「广告设置」填 Publisher ID 并启用后，H5 自动注入 AdSense 脚本；`GET /ads.txt` 按访问域名（Host 首段）动态输出该租户的授权行。审核通过前广告位空白属正常
+- **激励视频（看广告得金币）**：两种发币模式
+  - `client`（H5）：前端播完上报 `POST /api/rewards/watch-ad/complete`，服务端强制每日上限（默认 5 次/天 × 50 币），防刷有限但损失可控
+  - `ssv`（App 打包后推荐）：AdMob 服务端验证回调 `GET /api/webhooks/admob/ssv`，用 Google 公钥（googleapis.com/admob/v1/publicKeys，24h 缓存）做 RSA-SHA256 验签，验签通过 + transaction_id 去重后才发币。AdMob 后台配置 callback URL，custom_data 传 `uid=<用户ID>&tenant=<slug>`
+- **审核要求**：H5 已内置 `/privacy`、`/terms` 页面（AdSense 审核硬性要求），Profile 页底部有入口
+
 ## 快速启动
 
 ```bash

@@ -49,7 +49,11 @@ import { store, fmtCoins } from '../store'
       <router-link v-if="!store.user?.email" class="mi" to="/login"><span>📧 Bind Email (keep your coins safe)</span><i>›</i></router-link>
     </div>
 
-    <div class="foot">Viewly · Short Drama Platform</div>
+    <div class="foot">
+      <router-link to="/privacy">Privacy Policy</router-link> ·
+      <router-link to="/terms">Terms of Service</router-link>
+      <div>Viewly · Short Drama Platform</div>
+    </div>
   </div>
 </template>
 

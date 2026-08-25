@@ -3,16 +3,38 @@ package model
 import "time"
 
 // Tenant is one operator site on the shared-table platform. Content, users,
-// orders and admins are all scoped by TenantID.
+// orders and admins are all scoped by TenantID. Ad fields hold each tenant's
+// own monetization accounts (AdSense for web display, AdMob for app rewarded).
 type Tenant struct {
 	ID        uint64    `gorm:"primaryKey" json:"id"`
 	Name      string    `gorm:"size:64" json:"name"`
 	Slug      string    `gorm:"size:32;uniqueIndex" json:"slug"`
 	Status    int8      `json:"status"`
+
+	AdsenseClient      string `gorm:"size:64" json:"adsense_client"`
+	AdsenseEnabled     int8   `json:"adsense_enabled"`
+	RewardedAdMode     string `gorm:"size:8" json:"rewarded_ad_mode"` // off | client | ssv
+	RewardedAdCoins    int    `json:"rewarded_ad_coins"`
+	RewardedAdDailyLimit int  `json:"rewarded_ad_daily_limit"`
+	AdmobAppID         string `gorm:"size:64" json:"admob_app_id"`
+	AdmobRewardedUnitID string `gorm:"size:64" json:"admob_rewarded_unit_id"`
+
 	CreatedAt time.Time `json:"created_at"`
 }
 
 func (Tenant) TableName() string { return "tenants" }
+
+// AdSSVTransaction dedupes AdMob server-side verification callbacks so a
+// replayed callback URL can never credit twice.
+type AdSSVTransaction struct {
+	TransactionID string    `gorm:"primaryKey;size:64" json:"transaction_id"`
+	UserID        uint64    `json:"user_id"`
+	TenantID      uint64    `json:"tenant_id"`
+	Coins         int       `json:"coins"`
+	CreatedAt     time.Time `json:"created_at"`
+}
+
+func (AdSSVTransaction) TableName() string { return "ad_ssv_transactions" }
 
 type User struct {
 	ID           uint64    `gorm:"primaryKey" json:"id"`
