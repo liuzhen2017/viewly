@@ -1,0 +1,222 @@
+-- Viewly schema (MySQL 8, utf8mb4)
+-- Times are stored as DATETIME in UTC; daily-reset boundaries are computed
+-- in the configured app timezone (see backend config app.timezone).
+
+SET NAMES utf8mb4;
+
+CREATE TABLE IF NOT EXISTS users (
+  id            BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  guest_key     VARCHAR(64)  DEFAULT NULL,
+  email         VARCHAR(191) DEFAULT NULL,
+  password_hash VARCHAR(191) DEFAULT NULL,
+  nickname      VARCHAR(64)  NOT NULL DEFAULT '',
+  avatar        VARCHAR(500) NOT NULL DEFAULT '',
+  coins         BIGINT       NOT NULL DEFAULT 0,
+  vip_expire_at DATETIME     DEFAULT NULL,
+  status        TINYINT      NOT NULL DEFAULT 1,
+  language      VARCHAR(8)   NOT NULL DEFAULT 'en',
+  created_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_guest_key (guest_key),
+  UNIQUE KEY uk_email (email)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS coin_transactions (
+  id            BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id       BIGINT UNSIGNED NOT NULL,
+  amount        BIGINT      NOT NULL,
+  balance_after BIGINT      NOT NULL,
+  biz_type      VARCHAR(32) NOT NULL,
+  biz_id        VARCHAR(64) NOT NULL DEFAULT '',
+  remark        VARCHAR(255) NOT NULL DEFAULT '',
+  created_at    DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_user (user_id, id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS categories (
+  id         BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name       VARCHAR(64) NOT NULL,
+  sort       INT    NOT NULL DEFAULT 0,
+  status     TINYINT NOT NULL DEFAULT 1,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_name (name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS dramas (
+  id           BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  title        VARCHAR(191) NOT NULL,
+  description  TEXT,
+  category_id  BIGINT UNSIGNED DEFAULT NULL,
+  cover        VARCHAR(500) NOT NULL DEFAULT '',
+  banner       VARCHAR(500) NOT NULL DEFAULT '',
+  tags         VARCHAR(255) NOT NULL DEFAULT '',
+  is_featured  TINYINT NOT NULL DEFAULT 0,
+  is_completed TINYINT NOT NULL DEFAULT 0,
+  is_hot       TINYINT NOT NULL DEFAULT 0,
+  status       TINYINT NOT NULL DEFAULT 1,
+  views        BIGINT NOT NULL DEFAULT 0,
+  likes        BIGINT NOT NULL DEFAULT 0,
+  sort         INT NOT NULL DEFAULT 0,
+  created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  KEY idx_category (category_id),
+  KEY idx_status_created (status, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS episodes (
+  id           BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  drama_id     BIGINT UNSIGNED NOT NULL,
+  ep_index     INT NOT NULL,
+  title        VARCHAR(191) NOT NULL DEFAULT '',
+  video_url    VARCHAR(1000) NOT NULL DEFAULT '',
+  duration_sec INT NOT NULL DEFAULT 0,
+  price_coins  INT NOT NULL DEFAULT 0,
+  status       TINYINT NOT NULL DEFAULT 1,
+  created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_drama_ep (drama_id, ep_index)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS episode_unlocks (
+  id         BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id    BIGINT UNSIGNED NOT NULL,
+  drama_id   BIGINT UNSIGNED NOT NULL,
+  episode_id BIGINT UNSIGNED NOT NULL,
+  coins_cost INT NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_user_episode (user_id, episode_id),
+  KEY idx_user_drama (user_id, drama_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS banners (
+  id         BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  image      VARCHAR(500) NOT NULL DEFAULT '',
+  drama_id   BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  sort       INT NOT NULL DEFAULT 0,
+  status     TINYINT NOT NULL DEFAULT 1,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS coin_packages (
+  id          BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  coins       INT NOT NULL,
+  bonus_coins INT NOT NULL DEFAULT 0,
+  price_cents INT NOT NULL,
+  currency    VARCHAR(8) NOT NULL DEFAULT 'USD',
+  label       VARCHAR(64) NOT NULL DEFAULT '',
+  tag         VARCHAR(32) NOT NULL DEFAULT '',
+  sort        INT NOT NULL DEFAULT 0,
+  status      TINYINT NOT NULL DEFAULT 1
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS vip_plans (
+  id          BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  days        INT NOT NULL,
+  price_cents INT NOT NULL,
+  currency    VARCHAR(8) NOT NULL DEFAULT 'USD',
+  label       VARCHAR(64) NOT NULL DEFAULT '',
+  tag         VARCHAR(32) NOT NULL DEFAULT '',
+  sort        INT NOT NULL DEFAULT 0,
+  status      TINYINT NOT NULL DEFAULT 1
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS orders (
+  id          BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  order_no    VARCHAR(64) NOT NULL,
+  user_id     BIGINT UNSIGNED NOT NULL,
+  kind        VARCHAR(8) NOT NULL DEFAULT 'coins',
+  package_id  BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  coins       INT NOT NULL DEFAULT 0,
+  bonus_coins INT NOT NULL DEFAULT 0,
+  days        INT NOT NULL DEFAULT 0,
+  amount_cents INT NOT NULL,
+  currency    VARCHAR(8) NOT NULL DEFAULT 'USD',
+  status      VARCHAR(16) NOT NULL DEFAULT 'pending',
+  paid_at     DATETIME DEFAULT NULL,
+  created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_order_no (order_no),
+  KEY idx_user (user_id, id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS checkin_records (
+  id         BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id    BIGINT UNSIGNED NOT NULL,
+  day_date   CHAR(10) NOT NULL,
+  cycle_day  INT NOT NULL,
+  coins      INT NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_user_date (user_id, day_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS task_records (
+  id         BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id    BIGINT UNSIGNED NOT NULL,
+  task_key   VARCHAR(32) NOT NULL,
+  day_date   CHAR(10) NOT NULL,
+  progress   INT NOT NULL DEFAULT 0,
+  rewarded   TINYINT NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_user_task_day (user_id, task_key, day_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS favorites (
+  id         BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id    BIGINT UNSIGNED NOT NULL,
+  drama_id   BIGINT UNSIGNED NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_user_drama (user_id, drama_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS drama_likes (
+  id         BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id    BIGINT UNSIGNED NOT NULL,
+  drama_id   BIGINT UNSIGNED NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_user_drama (user_id, drama_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS drama_follows (
+  id         BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id    BIGINT UNSIGNED NOT NULL,
+  drama_id   BIGINT UNSIGNED NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_user_drama (user_id, drama_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS watch_progress (
+  id            BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id       BIGINT UNSIGNED NOT NULL,
+  drama_id      BIGINT UNSIGNED NOT NULL,
+  episode_id    BIGINT UNSIGNED NOT NULL,
+  position_sec  INT NOT NULL DEFAULT 0,
+  duration_sec  INT NOT NULL DEFAULT 0,
+  updated_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_user_drama (user_id, drama_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS watch_history (
+  id         BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id    BIGINT UNSIGNED NOT NULL,
+  drama_id   BIGINT UNSIGNED NOT NULL,
+  episode_id BIGINT UNSIGNED NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_user (user_id, id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS admin_users (
+  id            BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  username      VARCHAR(64) NOT NULL,
+  password_hash VARCHAR(191) NOT NULL,
+  nickname      VARCHAR(64) NOT NULL DEFAULT '',
+  role          VARCHAR(16) NOT NULL DEFAULT 'admin',
+  status        TINYINT NOT NULL DEFAULT 1,
+  created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_username (username)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS app_configs (
+  cfg_key   VARCHAR(64) NOT NULL PRIMARY KEY,
+  cfg_value TEXT,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

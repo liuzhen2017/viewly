@@ -1,0 +1,21 @@
+# Copy to config.yaml and fill in real values. config.yaml is gitignored.
+server:
+  port: 8080
+  jwt_secret: "CHANGE-ME-to-a-long-random-string"
+  # Allow mock-pay endpoint (dev only; MUST be false in production)
+  mock_pay: true
+
+mysql:
+  host: 127.0.0.1
+  port: 3306
+  user: viewly
+  password: "CHANGE-ME"
+  database: cascade-app
+
+app:
+  # Timezone used for daily reset boundaries (check-in, daily tasks).
+  timezone: Asia/Kolkata
+  # Coins granted on first guest login
+  signup_bonus: 60
+  # 7-day check-in rewards, index = day 1..7
+  checkin_rewards: [50, 50, 50, 50, 50, 50, 99]
