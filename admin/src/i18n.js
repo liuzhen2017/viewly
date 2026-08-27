@@ -79,6 +79,10 @@ export const messages = {
     // dramas
     searchTitle: 'Search title',
     filteredBy: 'Filtered',
+    uploadVideo: '⬆ Upload video',
+    uploadImage: '⬆ Upload image',
+    uploading: 'Uploading…',
+    uploaded: 'uploaded',
     newDrama: '+ New Drama',
     colCategory: 'Category',
     colEpisodes: 'Episodes',
@@ -230,6 +234,10 @@ export const messages = {
 
     searchTitle: '搜索剧名',
     filteredBy: '已过滤',
+    uploadVideo: '⬆ 上传视频',
+    uploadImage: '⬆ 上传图片',
+    uploading: '上传中…',
+    uploaded: '已上传',
     newDrama: '+ 新增剧目',
     colCategory: '分类',
     colEpisodes: '集数',

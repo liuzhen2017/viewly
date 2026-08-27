@@ -1,0 +1,21 @@
+server:
+  port: 8080
+  jwt_secret: "00821d85804226a759e9e05cd26f85a59d43291e41a7373a7b2da44eaea9b159"
+  mock_pay: false
+
+mysql:
+  host: 52.66.104.226
+  port: 4407
+  user: root
+  password: "xdTPD5%jUza"
+  database: cascade-app
+
+app:
+  timezone: Asia/Kolkata
+  signup_bonus: 60
+  checkin_rewards: [50, 50, 50, 50, 50, 50, 99]
+
+aws:
+  region: ap-east-1
+  bucket: viewly-videos-386344085984
+  cdn_base: https://cdn.likeviewly.com

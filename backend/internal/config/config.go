@@ -24,6 +24,12 @@ type Config struct {
 		SignupBonus    int64  `mapstructure:"signup_bonus"`
 		CheckinRewards []int  `mapstructure:"checkin_rewards"`
 	} `mapstructure:"app"`
+
+	AWS struct {
+		Region  string `mapstructure:"region"`
+		Bucket  string `mapstructure:"bucket"`
+		CDNBase string `mapstructure:"cdn_base"`
+	} `mapstructure:"aws"`
 }
 
 func Load(path string) (*Config, error) {

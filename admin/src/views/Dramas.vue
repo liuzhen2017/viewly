@@ -16,6 +16,37 @@ const epDialog = ref(false)
 const epDrama = ref(null)
 const eps = ref([])
 const epForm = ref({})
+const videoInput = ref(null)
+const coverInput = ref(null)
+const uploading = ref(0)
+
+// browser-direct S3 upload: presign from backend, PUT from this page
+async function uploadToS3(file, onDone) {
+  uploading.value++
+  try {
+    const p = await admin.presign(file.name, file.type || '')
+    const res = await fetch(p.upload_url, { method: 'PUT', headers: { 'Content-Type': file.type || 'application/octet-stream' }, body: file })
+    if (!res.ok) throw new Error('upload failed: HTTP ' + res.status)
+    onDone(p.cdn_url)
+    ElMessage.success(t('uploaded'))
+  } catch (e) {
+    ElMessage.error(e.message)
+  } finally {
+    uploading.value--
+  }
+}
+function pickVideo() { videoInput.value && videoInput.value.click() }
+function onVideoPicked(e) {
+  const f = e.target.files && e.target.files[0]
+  if (f) uploadToS3(f, url => { epForm.value.video_url = url })
+  e.target.value = ''
+}
+function pickCover() { coverInput.value && coverInput.value.click() }
+function onCoverPicked(e) {
+  const f = e.target.files && e.target.files[0]
+  if (f) uploadToS3(f, url => { form.value.cover = url; form.value.banner = url })
+  e.target.value = ''
+}
 
 async function load() {
   const r = await admin.dramas(page.value, keyword.value)
@@ -138,7 +169,13 @@ async function removeEp(e) {
         </el-select>
       </el-form-item>
       <el-form-item :label="t('formDescription')"><el-input v-model="form.description" type="textarea" :rows="3" /></el-form-item>
-      <el-form-item :label="t('formCoverUrl')"><el-input v-model="form.cover" placeholder="/static/posters/p1.svg" /></el-form-item>
+      <el-form-item :label="t('formCoverUrl')">
+        <div style="display:flex;gap:8px;width:100%">
+          <el-button size="small" :loading="uploading > 0" @click="pickCover">{{ t('uploadImage') }}</el-button>
+          <input ref="coverInput" type="file" hidden accept="image/*" @change="onCoverPicked" />
+        </div>
+      </el-form-item>
+      <el-form-item :label="t('formCoverUrl')"><el-input v-model="form.cover" placeholder="/static/posters/p1.svg / auto-filled" /></el-form-item>
       <el-form-item :label="t('formBannerUrl')"><el-input v-model="form.banner" /></el-form-item>
       <el-form-item :label="t('formTags')"><el-input v-model="form.tags" :placeholder="t('formTagsPh')" /></el-form-item>
       <el-form-item :label="t('formFlags')">
@@ -180,7 +217,13 @@ async function removeEp(e) {
     <el-form label-width="100px">
       <el-form-item :label="t('epIndex')"><el-input-number v-model="epForm.ep_index" :min="1" /></el-form-item>
       <el-form-item :label="t('epTitle')"><el-input v-model="epForm.title" /></el-form-item>
-      <el-form-item :label="t('videoUrl')"><el-input v-model="epForm.video_url" placeholder="https://…mp4" /></el-form-item>
+      <el-form-item :label="t('videoUrl')">
+        <div style="display:flex;gap:8px;width:100%">
+          <el-button size="small" type="primary" :loading="uploading > 0" @click="pickVideo">{{ uploading > 0 ? t('uploading') : t('uploadVideo') }}</el-button>
+          <input ref="videoInput" type="file" hidden accept="video/*,.m3u8,.ts" @change="onVideoPicked" />
+        </div>
+      </el-form-item>
+      <el-form-item :label="t('videoUrl')"><el-input v-model="epForm.video_url" placeholder="https://…mp4 / auto-filled" /></el-form-item>
       <el-form-item :label="t('duration')"><el-input-number v-model="epForm.duration_sec" :min="0" /></el-form-item>
       <el-form-item :label="t('epPriceLabel')"><el-input-number v-model="epForm.price_coins" :min="0" /> {{ t('freeHint') }}</el-form-item>
     </el-form>

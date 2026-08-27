@@ -20,6 +20,9 @@ func Open(cfg *config.Config) (*gorm.DB, error) {
 	mc.DBName = cfg.MySQL.Database
 	mc.ParseTime = true
 	mc.Loc = time.UTC
+	mc.Timeout = 10 * time.Second      // dial: fail fast instead of hanging
+	mc.ReadTimeout = 15 * time.Second
+	mc.WriteTimeout = 15 * time.Second
 	mc.Params = map[string]string{"charset": "utf8mb4", "time_zone": "'+00:00'"}
 
 	db, err := gorm.Open(gormmysql.New(gormmysql.Config{DSNConfig: mc, SkipInitializeWithVersion: false}), &gorm.Config{})

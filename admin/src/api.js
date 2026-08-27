@@ -1,13 +1,19 @@
 // Multi-tenant admin: X-Tenant-Slug selects the tenant site being managed
 // (subdomain in production, localStorage override for local testing).
 // Tokens and the admin role are stored per tenant.
+const RESERVED = new Set(['www', 'admin', 'api', 'cdn'])
+
 export function tenantSlug() {
   const saved = localStorage.getItem('viewly_tenant')
   if (saved) return saved
   const host = location.hostname
-  if (host.endsWith('.localhost')) return host.slice(0, -'.localhost'.length)
+  if (host.endsWith('.localhost')) {
+    const s = host.slice(0, -'.localhost'.length)
+    return RESERVED.has(s) ? 'main' : s
+  }
   const parts = host.split('.')
-  return parts.length > 2 ? parts[0] : 'main'
+  if (parts.length <= 2) return 'main'
+  return RESERVED.has(parts[0]) ? 'main' : parts[0]
 }
 
 const TOKEN_KEY = 'viewly_admin_token_' + tenantSlug()
@@ -67,6 +73,7 @@ export const admin = {
   createTenant: (t) => req('/api/admin/tenants', { method: 'POST', body: t }),
 
   adSettings: () => req('/api/admin/ad-settings'),
+  presign: (filename, content_type) => req('/api/admin/uploads/presign', { method: 'POST', body: { filename, content_type } }),
   saveAdSettings: (s) => req('/api/admin/ad-settings', { method: 'PUT', body: s }),
 
   orders: (page = 1, status = '') => req(`/api/admin/orders?page=${page}&size=20&status=${status}`),

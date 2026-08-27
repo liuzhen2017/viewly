@@ -121,6 +121,9 @@ func Setup(db *gorm.DB, cfg *config.Config, h *handler.Handler) *gin.Engine {
 		adminAuth.GET("/ad-settings", h.AdSettingsGet)
 		adminAuth.PUT("/ad-settings", h.AdSettingsUpdate)
 
+		// browser-direct S3 uploads (presigned)
+		adminAuth.POST("/uploads/presign", h.PresignUpload)
+
 		adminAuth.GET("/dramas", h.AdminDramaList)
 		adminAuth.POST("/dramas", h.AdminDramaCreate)
 		adminAuth.PUT("/dramas/:id", h.AdminDramaUpdate)

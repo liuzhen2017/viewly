@@ -5,14 +5,20 @@
 // production) or a localStorage override for local testing; tokens are stored
 // per tenant so switching sites never reuses a foreign-session token.
 
+const RESERVED = new Set(['www', 'admin', 'api', 'cdn'])
+
 export function tenantSlug() {
   const saved = localStorage.getItem('viewly_tenant')
   if (saved) return saved
   const host = location.hostname
-  if (host.endsWith('.localhost')) return host.slice(0, -'.localhost'.length) // demo.localhost → demo
+  if (host.endsWith('.localhost')) {
+    const s = host.slice(0, -'.localhost'.length) // demo.localhost → demo
+    return RESERVED.has(s) ? 'main' : s
+  }
   const parts = host.split('.')
-  // e.g. tenant1.viewly.com → tenant1; viewly.com / localhost → main
-  return parts.length > 2 ? parts[0] : 'main'
+  if (parts.length <= 2) return 'main'
+  // tenant1.likeviewly.com → tenant1; www/api/admin/cdn → main
+  return RESERVED.has(parts[0]) ? 'main' : parts[0]
 }
 
 const TOKEN_KEY = 'viewly_token_' + tenantSlug()
