@@ -6,6 +6,29 @@ import { t } from '../i18n'
 
 const list = ref([])
 const form = ref({ image: '', drama_id: 0, sort: 0 })
+const imgInput = ref(null)
+const uploading = ref(0)
+const uploadPct = ref(0)
+
+async function uploadImage(file, onDone) {
+  uploading.value++
+  try {
+    const r = await admin.uploadFile(file, pct => { uploadPct.value = pct })
+    onDone(r.cdn_url)
+    ElMessage.success(t('uploaded'))
+  } catch (e) {
+    ElMessage.error(e.message)
+  } finally {
+    uploading.value = 0
+    uploadPct.value = 0
+  }
+}
+function pickImage() { imgInput.value && imgInput.value.click() }
+function onImagePicked(e) {
+  const f = e.target.files && e.target.files[0]
+  if (f) uploadImage(f, url => { form.value.image = url })
+  e.target.value = ''
+}
 
 async function load() {
   list.value = await admin.banners()
@@ -33,6 +56,8 @@ async function remove(b) {
 <template>
   <el-card>
     <div style="display:flex;gap:10px;margin-bottom:12px">
+      <el-button type="primary" :loading="uploading > 0" @click="pickImage">{{ uploading > 0 ? t('uploading') + ' ' + uploadPct + '%' : t('uploadImage') }}</el-button>
+      <input ref="imgInput" type="file" hidden accept="image/*" @change="onImagePicked" />
       <el-input v-model="form.image" :placeholder="t('imageUrl')" style="width:300px" />
       <el-input-number v-model="form.drama_id" :min="0" :placeholder="t('dramaId')" />
       <el-input-number v-model="form.sort" :min="0" />
