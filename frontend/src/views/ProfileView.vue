@@ -52,7 +52,7 @@ import { store, fmtCoins } from '../store'
     <div class="foot">
       <router-link to="/privacy">Privacy Policy</router-link> ·
       <router-link to="/terms">Terms of Service</router-link>
-      <div>Viewly · Short Drama Platform</div>
+      <div>FoxDrama · Short Drama</div>
     </div>
   </div>
 </template>

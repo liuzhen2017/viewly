@@ -60,7 +60,7 @@ async function buy(kind, pkg) {
 
     <div v-else>
       <div class="vip-hero card">
-        <div class="vh-t">👑 Viewly VIP</div>
+        <div class="vh-t">👑 FoxDrama VIP</div>
         <ul class="vh-list">
           <li>✓ Watch every episode free — no coins needed</li>
           <li>✓ Ad-free viewing experience</li>

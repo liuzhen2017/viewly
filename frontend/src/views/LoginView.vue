@@ -43,7 +43,7 @@ async function submit() {
     <button class="back" @click="$router.back()">‹</button>
     <div class="hero">
       <div class="logo">🎬</div>
-      <h2>Welcome to Viewly</h2>
+      <h2>Welcome to FoxDrama</h2>
       <p>{{ store.user && !store.user.email ? 'Bind an email to protect your account' : 'Sign in to protect your account' }}</p>
     </div>
 

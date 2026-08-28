@@ -38,7 +38,8 @@ async function uploadToS3(file, onDone) {
 function pickVideo() { videoInput.value && videoInput.value.click() }
 function onVideoPicked(e) {
   const f = e.target.files && e.target.files[0]
-  if (f) uploadToS3(f, url => { epForm.value.video_url = url })
+  // one-click: upload, autofill, and save the episode immediately
+  if (f) uploadToS3(f, url => { epForm.value.video_url = url; saveEp() })
   e.target.value = ''
 }
 function pickCover() { coverInput.value && coverInput.value.click() }

@@ -2,7 +2,7 @@
 import { useRoute } from 'vue-router'
 const route = useRoute()
 const isPrivacy = route.path === '/privacy'
-const brand = 'Viewly'
+const brand = 'FoxDrama'
 const year = new Date().getFullYear()
 </script>
 
