@@ -121,7 +121,8 @@ func Setup(db *gorm.DB, cfg *config.Config, h *handler.Handler) *gin.Engine {
 		adminAuth.GET("/ad-settings", h.AdSettingsGet)
 		adminAuth.PUT("/ad-settings", h.AdSettingsUpdate)
 
-		// browser-direct S3 uploads (presigned)
+		// uploads: server-relay (no CORS needed) + presigned variant
+		adminAuth.POST("/uploads", h.UploadRelay)
 		adminAuth.POST("/uploads/presign", h.PresignUpload)
 
 		adminAuth.GET("/dramas", h.AdminDramaList)

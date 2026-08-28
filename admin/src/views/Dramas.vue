@@ -19,20 +19,20 @@ const epForm = ref({})
 const videoInput = ref(null)
 const coverInput = ref(null)
 const uploading = ref(0)
+const uploadPct = ref(0)
 
 // browser-direct S3 upload: presign from backend, PUT from this page
 async function uploadToS3(file, onDone) {
   uploading.value++
   try {
-    const p = await admin.presign(file.name, file.type || '')
-    const res = await fetch(p.upload_url, { method: 'PUT', headers: { 'Content-Type': file.type || 'application/octet-stream' }, body: file })
-    if (!res.ok) throw new Error('upload failed: HTTP ' + res.status)
-    onDone(p.cdn_url)
+    const r = await admin.uploadFile(file, pct => { uploadPct.value = pct })
+    onDone(r.cdn_url)
     ElMessage.success(t('uploaded'))
   } catch (e) {
     ElMessage.error(e.message)
   } finally {
-    uploading.value--
+    uploading.value = 0
+    uploadPct.value = 0
   }
 }
 function pickVideo() { videoInput.value && videoInput.value.click() }
@@ -172,7 +172,7 @@ async function removeEp(e) {
       <el-form-item :label="t('formDescription')"><el-input v-model="form.description" type="textarea" :rows="3" /></el-form-item>
       <el-form-item :label="t('formCoverUrl')">
         <div style="display:flex;gap:8px;width:100%">
-          <el-button size="small" :loading="uploading > 0" @click="pickCover">{{ t('uploadImage') }}</el-button>
+          <el-button size="small" :loading="uploading > 0" @click="pickCover">{{ uploading > 0 ? t('uploading') + ' ' + uploadPct + '%' : t('uploadImage') }}</el-button>
           <input ref="coverInput" type="file" hidden accept="image/*" @change="onCoverPicked" />
         </div>
       </el-form-item>
@@ -220,7 +220,7 @@ async function removeEp(e) {
       <el-form-item :label="t('epTitle')"><el-input v-model="epForm.title" /></el-form-item>
       <el-form-item :label="t('videoUrl')">
         <div style="display:flex;gap:8px;width:100%">
-          <el-button size="small" type="primary" :loading="uploading > 0" @click="pickVideo">{{ uploading > 0 ? t('uploading') : t('uploadVideo') }}</el-button>
+          <el-button size="small" type="primary" :loading="uploading > 0" @click="pickVideo">{{ uploading > 0 ? t('uploading') + ' ' + uploadPct + '%' : t('uploadVideo') }}</el-button>
           <input ref="videoInput" type="file" hidden accept="video/*,.m3u8,.ts" @change="onVideoPicked" />
         </div>
       </el-form-item>

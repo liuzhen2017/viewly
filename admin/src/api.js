@@ -74,6 +74,27 @@ export const admin = {
 
   adSettings: () => req('/api/admin/ad-settings'),
   presign: (filename, content_type) => req('/api/admin/uploads/presign', { method: 'POST', body: { filename, content_type } }),
+
+// relay upload (no CORS issues): browser -> API -> S3, with progress callback
+  uploadFile: (file, onProgress) => new Promise((resolve, reject) => {
+    const fd = new FormData()
+    fd.append('file', file)
+    const xhr = new XMLHttpRequest()
+    xhr.open('POST', '/api/admin/uploads')
+    const token = getToken()
+    if (token) xhr.setRequestHeader('Authorization', 'Bearer ' + token)
+    xhr.setRequestHeader('X-Tenant-Slug', tenantSlug())
+    xhr.upload.onprogress = e => { if (e.lengthComputable && onProgress) onProgress(Math.round(e.loaded / e.total * 100)) }
+    xhr.onload = () => {
+      try {
+        const d = JSON.parse(xhr.responseText)
+        if (d.code === 0) resolve(d.data)
+        else reject(new Error(d.msg || 'upload failed'))
+      } catch { reject(new Error('upload failed: HTTP ' + xhr.status)) }
+    }
+    xhr.onerror = () => reject(new Error('network error'))
+    xhr.send(fd)
+  }),
   saveAdSettings: (s) => req('/api/admin/ad-settings', { method: 'PUT', body: s }),
 
   orders: (page = 1, status = '') => req(`/api/admin/orders?page=${page}&size=20&status=${status}`),
