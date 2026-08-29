@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { admin, uploadWithFallback } from '../api'
+import { admin, uploadWithFallback, uploadLargeFile } from '../api'
 import { t } from '../i18n'
 
 const list = ref([])
@@ -48,7 +48,8 @@ async function onBatchPicked(e) {
   for (const f of files) {
     batch.value.name = f.name
     try {
-      const [r, dur] = await Promise.all([uploadWithFallback(f, pct => { uploadPct.value = pct }), readDuration(f)])
+      const uploader = f.size > 20 * 1024 * 1024 ? uploadLargeFile : uploadWithFallback
+      const [r, dur] = await Promise.all([uploader(f, pct => { uploadPct.value = pct }), readDuration(f)])
       await admin.saveEpisode({ drama_id: epDrama.value.id, title: f.name.replace(VIDEO_EXT, ''), video_url: r.cdn_url, duration_sec: dur })
       ok++
     } catch (err) {
@@ -67,7 +68,8 @@ async function onBatchPicked(e) {
 async function uploadToS3(file, onDone) {
   uploading.value++
   try {
-    const [r, dur] = await Promise.all([uploadWithFallback(file, pct => { uploadPct.value = pct }), readDuration(file)])
+    const uploader = file.size > 20 * 1024 * 1024 ? uploadLargeFile : uploadWithFallback
+    const [r, dur] = await Promise.all([uploader(file, pct => { uploadPct.value = pct }), readDuration(file)])
     onDone(r.cdn_url, dur)
     ElMessage.success(t('uploaded'))
   } catch (e) {

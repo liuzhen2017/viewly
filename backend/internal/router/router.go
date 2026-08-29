@@ -125,6 +125,12 @@ func Setup(db *gorm.DB, cfg *config.Config, h *handler.Handler) *gin.Engine {
 		adminAuth.POST("/uploads", h.UploadRelay)
 		adminAuth.POST("/uploads/presign", h.PresignUpload)
 
+		// chunked multipart upload for large videos
+		adminAuth.POST("/uploads/mp/init", h.MpInit)
+		adminAuth.POST("/uploads/mp/chunk", h.MpChunk)
+		adminAuth.POST("/uploads/mp/complete", h.MpComplete)
+		adminAuth.POST("/uploads/mp/abort", h.MpAbort)
+
 		adminAuth.GET("/dramas", h.AdminDramaList)
 		adminAuth.POST("/dramas", h.AdminDramaCreate)
 		adminAuth.PUT("/dramas/:id", h.AdminDramaUpdate)

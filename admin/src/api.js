@@ -21,6 +21,12 @@ const ROLE_KEY = 'viewly_admin_role_' + tenantSlug()
 export const getToken = () => localStorage.getItem(TOKEN_KEY) || ''
 export const setToken = (t) => localStorage.setItem(TOKEN_KEY, t)
 export const getRole = () => localStorage.getItem(ROLE_KEY) || ''
+
+function authHeaders() {
+  const h = { 'X-Tenant-Slug': tenantSlug() }
+  if (getToken()) h.Authorization = 'Bearer ' + getToken()
+  return h
+}
 export const setRole = (r) => localStorage.setItem(ROLE_KEY, r)
 export const clearToken = () => { localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(ROLE_KEY) }
 
@@ -49,6 +55,78 @@ export async function uploadWithFallback(file, onProgress) {
     if (/direct route/.test(e.message)) return admin.uploadFile(file, onProgress, false)
     throw e
   }
+}
+
+// ---- chunked multipart upload for large files ----
+// 16MB chunks, 3 concurrent, per-chunk retry. Every request stays small so
+// proxy body limits (CF free = 100MB) can never kill an upload again.
+const CHUNK_SIZE = 16 * 1024 * 1024
+const CHUNK_CONCURRENCY = 3
+
+function post(path, body, direct) {
+  const base = (direct && !location.hostname.endsWith('.localhost')) ? 'https://upload.likeviewly.com' : ''
+  return req(base + path, { method: 'POST', body })
+}
+
+export async function uploadLargeFile(file, onProgress) {
+  const total = Math.ceil(file.size / CHUNK_SIZE)
+  // pick one route for the whole transfer: direct first, same-origin fallback
+  let base = (location.hostname.endsWith('.localhost')) ? '' : 'https://upload.likeviewly.com'
+  let init
+  try {
+    init = await post('/api/admin/uploads/mp/init', { filename: file.name }, true)
+  } catch (e) {
+    if (!base) throw e
+    base = ''
+    init = await post('/api/admin/uploads/mp/init', { filename: file.name }, false)
+  }
+  const uploadId = init.upload_id
+  const parts = []
+  let doneBytes = 0
+  let cursor = 1
+
+  const uploadChunk = async partNo => {
+    const blob = file.slice((partNo - 1) * CHUNK_SIZE, Math.min(partNo * CHUNK_SIZE, file.size))
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const fd = new FormData()
+        fd.append('chunk', blob)
+        const r = await fetch(base + '/api/admin/uploads/mp/chunk?upload_id=' + uploadId + '&part=' + partNo, {
+          method: 'POST', body: fd, headers: authHeaders(),
+        })
+        const d = await r.json()
+        if (d.code !== 0) throw new Error(d.msg)
+        parts.push({ part: partNo, etag: d.data.etag })
+        doneBytes += blob.size
+        if (onProgress) onProgress(Math.round(doneBytes / file.size * 100))
+        return
+      } catch (e) {
+        if (attempt === 2) throw new Error('chunk ' + partNo + ' failed: ' + e.message)
+        await new Promise(r2 => setTimeout(r2, 1000 * (attempt + 1)))
+      }
+    }
+  }
+
+  const workers = Array.from({ length: CHUNK_CONCURRENCY }, async () => {
+    while (true) {
+      const my = cursor++
+      if (my > total) break
+      await uploadChunk(my)
+    }
+  })
+  try {
+    await Promise.all(workers)
+  } catch (e) {
+    post('/api/admin/uploads/mp/abort', { upload_id: uploadId }, true).catch(() => {})
+    throw e
+  }
+  parts.sort((a, b) => a.part - b.part)
+  const done = await fetch(base + '/api/admin/uploads/mp/complete', {
+    method: 'POST', headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ upload_id: uploadId, parts }),
+  }).then(r => r.json())
+  if (done.code !== 0) throw new Error(done.msg)
+  return done.data
 }
 
 export const admin = {
