@@ -18,8 +18,38 @@ const eps = ref([])
 const epForm = ref({})
 const videoInput = ref(null)
 const coverInput = ref(null)
+const batchInput = ref(null)
 const uploading = ref(0)
 const uploadPct = ref(0)
+const batch = ref({ total: 0, done: 0, name: '' })
+
+const VIDEO_EXT = /\.(mp4|m3u8|ts|webm|mov)$/i
+
+function pickBatch() { batchInput.value && batchInput.value.click() }
+
+async function onBatchPicked(e) {
+  const files = [...(e.target.files || [])].filter(f => VIDEO_EXT.test(f.name)).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
+  e.target.value = ''
+  if (!files.length || !epDrama.value) return
+  batch.value = { total: files.length, done: 0, name: '' }
+  let ok = 0, fail = 0
+  for (const f of files) {
+    batch.value.name = f.name
+    try {
+      const r = await admin.uploadFile(f, pct => { uploadPct.value = pct })
+      await admin.saveEpisode({ drama_id: epDrama.value.id, title: f.name.replace(VIDEO_EXT, ''), video_url: r.cdn_url })
+      ok++
+    } catch (err) {
+      fail++
+      ElMessage.error(f.name + ': ' + err.message)
+    }
+    batch.value.done++
+    uploadPct.value = 0
+  }
+  ElMessage.success(`Batch done: ${ok} ok${fail ? ', ' + fail + ' failed' : ''}`)
+  eps.value = await admin.episodes(epDrama.value.id)
+  batch.value = { total: 0, done: 0, name: '' }
+}
 
 // browser-direct S3 upload: presign from backend, PUT from this page
 async function uploadToS3(file, onDone) {
@@ -197,7 +227,13 @@ async function removeEp(e) {
 
   <!-- episodes dialog -->
   <el-dialog v-model="epDialog" :title="t('episodesOf', { title: epDrama?.title || '' })" width="720px">
-    <el-button size="small" type="primary" @click="openEpCreate">{{ t('addEpisode') }}</el-button>
+    <div style="display:flex;gap:8px">
+      <el-button size="small" type="primary" @click="openEpCreate">{{ t('addEpisode') }}</el-button>
+      <el-button size="small" type="success" :disabled="batch.total > 0" @click="pickBatch">
+        {{ batch.total ? t('batchUploading') + ' ' + batch.done + '/' + batch.total + (batch.name ? ' · ' + uploadPct + '%' : '') : t('batchUpload') }}
+      </el-button>
+      <input ref="batchInput" type="file" hidden webkitdirectory @change="onBatchPicked" />
+    </div>
     <el-table :data="eps" size="small" style="margin-top:10px">
       <el-table-column prop="ep_index" label="#" width="50" />
       <el-table-column prop="title" :label="t('epTitle')" min-width="160" />
