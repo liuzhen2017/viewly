@@ -1,15 +1,39 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
 import { api } from '../api'
 import { store, fmtCoins } from '../store'
 import DramaCard from '../components/DramaCard.vue'
 
 const data = ref(null)
 const error = ref('')
+const bannerEl = ref(null)
+const bannerIdx = ref(0)
+let autoTimer = null
+let resumeTimer = null
+
+const bannerCount = computed(() => (data.value?.banners || []).length)
+
+function slideTo(i) {
+  const el = bannerEl.value
+  if (!el) return
+  bannerIdx.value = ((i % bannerCount.value) + bannerCount.value) % bannerCount.value
+  el.scrollTo({ left: bannerIdx.value * el.clientWidth, behavior: 'smooth' })
+}
+function startAuto() {
+  stopAuto()
+  autoTimer = setInterval(() => { if (bannerCount.value > 1) slideTo(bannerIdx.value + 1) }, 3500)
+}
+function stopAuto() { clearInterval(autoTimer) }
+function onTouchStart() { stopAuto(); clearTimeout(resumeTimer) }
+function onTouchEnd() { resumeTimer = setTimeout(startAuto, 4000) }
 
 onMounted(async () => {
-  try { data.value = await api.home() } catch (e) { error.value = e.message }
+  try {
+    data.value = await api.home()
+    if ((data.value?.banners || []).length > 1) startAuto()
+  } catch (e) { error.value = e.message }
 })
+onBeforeUnmount(() => { stopAuto(); clearTimeout(resumeTimer) })
 </script>
 
 <template>
@@ -34,15 +58,24 @@ onMounted(async () => {
 
     <div class="page" v-if="data">
       <!-- banner carousel -->
-      <div class="banners">
-        <router-link
-          v-for="b in data.banners"
-          :key="b.image"
-          :to="b.drama_id ? `/drama/${b.drama_id}` : '/#'"
-          class="banner"
-        >
-          <img :src="b.image" alt="" />
-        </router-link>
+      <div class="banner-wrap">
+        <div class="banners" ref="bannerEl" @touchstart.passive="onTouchStart" @touchend.passive="onTouchEnd">
+          <router-link
+            v-for="b in data.banners"
+            :key="b.image"
+            :to="b.drama_id ? `/drama/${b.drama_id}` : '/#'"
+            class="banner"
+          >
+            <img :src="b.image" alt="" />
+          </router-link>
+        </div>
+        <div v-if="bannerCount > 1" class="dots">
+          <span
+            v-for="i in bannerCount" :key="i"
+            class="dot" :class="{ on: bannerIdx === i - 1 }"
+            @click="slideTo(i - 1)"
+          ></span>
+        </div>
       </div>
 
       <div class="section-head">
@@ -81,6 +114,18 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.banner-wrap { position: relative; }
+.dots {
+  position: absolute;
+  left: 0; right: 0; bottom: 8px;
+  display: flex; justify-content: center; gap: 5px;
+}
+.dot {
+  width: 6px; height: 6px; border-radius: 999px;
+  background: rgba(255, 255, 255, .4);
+  transition: all .2s;
+}
+.dot.on { background: #fff; width: 14px; }
 .search-bar {
   display: flex;
   gap: 10px;
