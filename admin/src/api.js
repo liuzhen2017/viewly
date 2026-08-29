@@ -41,6 +41,16 @@ export async function req(path, { method = 'GET', body } = {}) {
   return json.data
 }
 
+// uploadWithFallback: try direct host, fall back to same-origin on failure
+export async function uploadWithFallback(file, onProgress) {
+  try {
+    return await admin.uploadFile(file, onProgress, true)
+  } catch (e) {
+    if (/direct route/.test(e.message)) return admin.uploadFile(file, onProgress, false)
+    throw e
+  }
+}
+
 export const admin = {
   login: (username, password) => req('/api/admin/login', { method: 'POST', body: { username, password } }),
   stats: () => req('/api/admin/stats'),
@@ -75,12 +85,15 @@ export const admin = {
   adSettings: () => req('/api/admin/ad-settings'),
   presign: (filename, content_type) => req('/api/admin/uploads/presign', { method: 'POST', body: { filename, content_type } }),
 
-// relay upload (no CORS issues): browser -> API -> S3, with progress callback
-  uploadFile: (file, onProgress) => new Promise((resolve, reject) => {
+// relay upload (no CORS issues): browser -> API -> S3, with progress callback.
+  // Prefers the direct upload host (bypasses the CF proxy for speed);
+  // falls back to the same-origin route automatically if it fails.
+  uploadFile: (file, onProgress, direct = true) => new Promise((resolve, reject) => {
     const fd = new FormData()
     fd.append('file', file)
+    const base = (direct && !location.hostname.endsWith('.localhost')) ? 'https://upload.likeviewly.com' : ''
     const xhr = new XMLHttpRequest()
-    xhr.open('POST', '/api/admin/uploads')
+    xhr.open('POST', base + '/api/admin/uploads')
     const token = getToken()
     if (token) xhr.setRequestHeader('Authorization', 'Bearer ' + token)
     xhr.setRequestHeader('X-Tenant-Slug', tenantSlug())
@@ -92,7 +105,7 @@ export const admin = {
         else reject(new Error(d.msg || 'upload failed'))
       } catch { reject(new Error('upload failed: HTTP ' + xhr.status)) }
     }
-    xhr.onerror = () => reject(new Error('network error'))
+    xhr.onerror = () => reject(new Error(direct ? 'direct route unreachable' : 'network error'))
     xhr.send(fd)
   }),
   saveAdSettings: (s) => req('/api/admin/ad-settings', { method: 'PUT', body: s }),

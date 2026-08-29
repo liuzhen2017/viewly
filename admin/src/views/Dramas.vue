@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { admin } from '../api'
+import { admin, uploadWithFallback } from '../api'
 import { t } from '../i18n'
 
 const list = ref([])
@@ -25,6 +25,18 @@ const batch = ref({ total: 0, done: 0, name: '' })
 
 const VIDEO_EXT = /\.(mp4|m3u8|ts|webm|mov)$/i
 
+// read video duration from the file's metadata (browser-side, no manual input)
+function readDuration(file) {
+  return new Promise(resolve => {
+    const url = URL.createObjectURL(file)
+    const v = document.createElement('video')
+    v.preload = 'metadata'
+    v.onloadedmetadata = () => { const d = Math.round(v.duration); URL.revokeObjectURL(url); resolve(d || 0) }
+    v.onerror = () => { URL.revokeObjectURL(url); resolve(0) }
+    v.src = url
+  })
+}
+
 function pickBatch() { batchInput.value && batchInput.value.click() }
 
 async function onBatchPicked(e) {
@@ -36,8 +48,8 @@ async function onBatchPicked(e) {
   for (const f of files) {
     batch.value.name = f.name
     try {
-      const r = await admin.uploadFile(f, pct => { uploadPct.value = pct })
-      await admin.saveEpisode({ drama_id: epDrama.value.id, title: f.name.replace(VIDEO_EXT, ''), video_url: r.cdn_url })
+      const [r, dur] = await Promise.all([uploadWithFallback(f, pct => { uploadPct.value = pct }), readDuration(f)])
+      await admin.saveEpisode({ drama_id: epDrama.value.id, title: f.name.replace(VIDEO_EXT, ''), video_url: r.cdn_url, duration_sec: dur })
       ok++
     } catch (err) {
       fail++
@@ -55,8 +67,8 @@ async function onBatchPicked(e) {
 async function uploadToS3(file, onDone) {
   uploading.value++
   try {
-    const r = await admin.uploadFile(file, pct => { uploadPct.value = pct })
-    onDone(r.cdn_url)
+    const [r, dur] = await Promise.all([uploadWithFallback(file, pct => { uploadPct.value = pct }), readDuration(file)])
+    onDone(r.cdn_url, dur)
     ElMessage.success(t('uploaded'))
   } catch (e) {
     ElMessage.error(e.message)
@@ -69,7 +81,7 @@ function pickVideo() { videoInput.value && videoInput.value.click() }
 function onVideoPicked(e) {
   const f = e.target.files && e.target.files[0]
   // one-click: upload, autofill, and save the episode immediately
-  if (f) uploadToS3(f, url => { epForm.value.video_url = url; saveEp() })
+  if (f) uploadToS3(f, (url, dur) => { epForm.value.video_url = url; if (dur) epForm.value.duration_sec = dur; saveEp() })
   e.target.value = ''
 }
 function pickCover() { coverInput.value && coverInput.value.click() }
@@ -261,7 +273,7 @@ async function removeEp(e) {
         </div>
       </el-form-item>
       <el-form-item :label="t('videoUrl')"><el-input v-model="epForm.video_url" placeholder="https://…mp4 / auto-filled" /></el-form-item>
-      <el-form-item :label="t('duration')"><el-input-number v-model="epForm.duration_sec" :min="0" /></el-form-item>
+      <el-form-item :label="t('duration')"><el-input-number v-model="epForm.duration_sec" :min="0" disabled /> <span style="color:#999;font-size:12px">auto</span></el-form-item>
       <el-form-item :label="t('epPriceLabel')"><el-input-number v-model="epForm.price_coins" :min="0" /> {{ t('freeHint') }}</el-form-item>
     </el-form>
     <template #footer>
