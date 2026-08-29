@@ -61,7 +61,7 @@ export async function uploadWithFallback(file, onProgress) {
 // 16MB chunks, 3 concurrent, per-chunk retry. Every request stays small so
 // proxy body limits (CF free = 100MB) can never kill an upload again.
 const CHUNK_SIZE = 16 * 1024 * 1024
-const CHUNK_CONCURRENCY = 3
+const CHUNK_CONCURRENCY = 6
 
 function post(path, body, direct) {
   const base = (direct && !location.hostname.endsWith('.localhost')) ? 'https://upload.likeviewly.com' : ''
