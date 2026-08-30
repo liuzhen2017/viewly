@@ -146,7 +146,7 @@ func (h *Handler) Categories(c *gin.Context) {
 func (h *Handler) DramaList(c *gin.Context) {
 	page, size := pageParams(c, 12)
 	listFilters := func(q *gorm.DB) *gorm.DB {
-		q = q.Where("d.status = 1")
+		q = q.Where("d.status = 1 AND d.tenant_id = ?", h.tID(c))
 		if v := c.Query("category_id"); v != "" {
 			q = q.Where("d.category_id = ?", toInt(v, 0))
 		}
