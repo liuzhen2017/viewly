@@ -18,8 +18,8 @@ async function load() {
   if (activeCat.value) params.category_id = activeCat.value
   if (completed.value) params.completed = 1
   const r = await api.dramas(params)
-  list.value = r
-  total.value = r.length
+  list.value = r.list || []
+  total.value = r.total || 0
   loading.value = false
 }
 

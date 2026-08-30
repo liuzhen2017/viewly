@@ -145,19 +145,23 @@ func (h *Handler) Categories(c *gin.Context) {
 // filters: category_id, completed=1, hot=1, keyword, sort=views|newest
 func (h *Handler) DramaList(c *gin.Context) {
 	page, size := pageParams(c, 12)
-	q := h.cardQuery(c).Where("d.status = 1")
-	if v := c.Query("category_id"); v != "" {
-		q = q.Where("d.category_id = ?", toInt(v, 0))
+	listFilters := func(q *gorm.DB) *gorm.DB {
+		q = q.Where("d.status = 1")
+		if v := c.Query("category_id"); v != "" {
+			q = q.Where("d.category_id = ?", toInt(v, 0))
+		}
+		if c.Query("completed") == "1" {
+			q = q.Where("d.is_completed = 1")
+		}
+		if c.Query("hot") == "1" {
+			q = q.Where("d.is_hot = 1")
+		}
+		if kw := c.Query("keyword"); kw != "" {
+			q = q.Where("d.title LIKE ?", "%"+kw+"%")
+		}
+		return q
 	}
-	if c.Query("completed") == "1" {
-		q = q.Where("d.is_completed = 1")
-	}
-	if c.Query("hot") == "1" {
-		q = q.Where("d.is_hot = 1")
-	}
-	if kw := c.Query("keyword"); kw != "" {
-		q = q.Where("d.title LIKE ?", "%"+kw+"%")
-	}
+	q := h.cardQuery(c).Scopes(listFilters)
 	switch c.Query("sort") {
 	case "views":
 		q = q.Order("d.views DESC")
@@ -166,7 +170,7 @@ func (h *Handler) DramaList(c *gin.Context) {
 	}
 
 	var total int64
-	if dbFailed(c, h.DB.Table("dramas").Where("status = 1 AND tenant_id = ?", h.tID(c)).Count(&total).Error) {
+	if dbFailed(c, h.DB.Table("dramas d").Scopes(listFilters).Count(&total).Error) {
 		return
 	}
 	list, err := h.cards(q.Offset(offset(page, size)).Limit(size))
