@@ -193,6 +193,7 @@ func (h *Handler) MpComplete(c *gin.Context) {
 	delete(mpSessions, req.UploadID)
 	mpMu.Unlock()
 	cdn := strings.TrimRight(h.Cfg.AWS.CDNBase, "/") + "/" + sess.Key
+	enqueueRemux(sess.Key)
 	ok(c, gin.H{"cdn_url": cdn, "key": sess.Key})
 }
 

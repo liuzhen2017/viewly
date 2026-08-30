@@ -16,5 +16,8 @@ type Handler struct {
 }
 
 func New(db *gorm.DB, cfg *config.Config, tz *time.Location) *Handler {
+	remuxCDNBase = cfg.AWS.CDNBase
+	remuxRegion = cfg.AWS.Region
+	remuxBucket = cfg.AWS.Bucket
 	return &Handler{DB: db, Cfg: cfg, TZ: tz}
 }
