@@ -73,18 +73,15 @@ async function goWatch(f) {
   <div class="feed-wrap">
     <div
       v-for="f in feed" :key="f.episode_id" class="feed-item" :data-key="'ep' + f.episode_id"
+      @click="openPlayer(f)"
     >
       <img class="bg" :src="f.cover" alt="" />
-      <video playsinline loop muted></video>
-      <div class="meta">
-        <router-link :to="`/drama/${f.drama_id}`" class="drama-title">
+      <video playsinline loop muted @click.stop="goWatch(f)"></video>
+      <div class="meta" @click.stop="openPlayer(f)">
+        <div class="drama-title">
           <b>{{ f.drama_title }}</b> <span class="badge">{{ f.category }}</span>
-        </router-link>
-        <div class="ep-line">Ep {{ f.ep_index }} · 👁 {{ f.views.toLocaleString() }}</div>
-        <div class="row">
-          <button class="play-btn btn btn-primary" @click="goWatch(f)">▶ Watch</button>
-          <router-link v-if="!f.accessible" to="/recharge" class="btn btn-gold btn-sm">🔒 {{ f.price_coins }} 🪙</router-link>
         </div>
+        <div class="ep-line">Ep {{ f.ep_index }} · 👁 {{ f.views.toLocaleString() }} · tap to watch ▶</div>
       </div>
     </div>
     <div v-if="!feed.length" class="empty" style="padding-top:120px">Loading feed…</div>
@@ -108,6 +105,7 @@ async function goWatch(f) {
 }
 .feed-item .bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; filter: brightness(.55); }
 .feed-item video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: transparent; }
+.feed-item { cursor: pointer; }
 .meta {
   position: absolute;
   left: 16px; right: 16px; bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px) + 22px);

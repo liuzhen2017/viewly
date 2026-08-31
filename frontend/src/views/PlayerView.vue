@@ -17,6 +17,8 @@ const unlockBusy = ref(false)
 const showAd = ref(false)
 const cur = ref(0)
 const dur = ref(0)
+const isPortrait = ref(false)
+let touchY0 = null
 let progressTimer = null
 let watchTimer = null
 
@@ -146,6 +148,21 @@ function onEnded() {
   report()
   if (nextEp.value) switchEp(nextEp.value)
 }
+// vertical swipe in the video area: up = next ep, down = prev ep
+function onTouchedVideo(e) {
+  if (e.touches.length) touchY0 = e.touches[0].clientY
+}
+function onReleasedVideo(e) {
+  if (touchY0 === null) return
+  const dy = (e.changedTouches[0].clientY || 0) - touchY0
+  touchY0 = null
+  if (dy < -56 && nextEp.value) switchEp(nextEp.value)
+  else if (dy > 56 && prevEp.value) switchEp(prevEp.value)
+}
+function onVideoMeta() {
+  const v = videoEl.value
+  if (v && v.videoHeight > v.videoWidth) isPortrait.value = true
+}
 function onTime() {
   const v = videoEl.value
   cur.value = v.currentTime || 0
@@ -168,7 +185,7 @@ function fmt(s) {
       <router-link to="/wallet" class="coin">{{ fmtCoins(store.user?.coins ?? 0) }}</router-link>
     </div>
 
-    <div class="video-wrap">
+    <div class="video-wrap" :class="{ portrait: isPortrait }">
       <video
         ref="videoEl"
         playsinline
@@ -177,6 +194,9 @@ function fmt(s) {
         @pause="report"
         @timeupdate="onTime"
         @ended="onEnded"
+        @loadedmetadata="onVideoMeta"
+        @touchstart.passive="onTouchedVideo"
+        @touchend.passive="onReleasedVideo"
       ></video>
       <div v-if="!videoEl?.src || showUnlock" class="placeholder">
         <img v-if="currentEp" :src="drama.cover" alt="" />
@@ -246,6 +266,10 @@ function fmt(s) {
   position: relative;
   background: #000;
   aspect-ratio: 16 / 9;
+}
+.video-wrap.portrait {
+  aspect-ratio: auto;
+  height: 64vh;
 }
 .video-wrap video { width: 100%; height: 100%; display: block; background: #000; }
 .placeholder { position: absolute; inset: 0; }
