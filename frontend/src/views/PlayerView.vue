@@ -3,6 +3,7 @@ import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api } from '../api'
 import { store, refreshMe, fmtCoins } from '../store'
+import AdPlayer from '../components/AdPlayer.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -13,6 +14,7 @@ const currentEp = ref(null)
 const playing = ref(false)
 const showUnlock = ref(false)
 const unlockBusy = ref(false)
+const showAd = ref(false)
 const cur = ref(0)
 const dur = ref(0)
 let progressTimer = null
@@ -91,9 +93,44 @@ async function confirmUnlock() {
     loadVideo(r.video_url)
   } catch (e) {
     if (e.code === 2003) {
+      // coins short: try a rewarded ad first, only send to recharge if no ads
+      tryAdForUnlock()
+    } else {
+      window.$toast(e.message)
+    }
+  } finally {
+    unlockBusy.value = false
+  }
+}
+
+// rewarded-ad loop: watch ad -> credit coins -> retry unlock automatically
+function adAvailable() {
+  return store.adConfig && store.adConfig.rewarded_ad_mode === 'client'
+}
+function tryAdForUnlock() {
+  if (!adAvailable()) {
+    window.$toast('Not enough coins')
+    router.push('/recharge')
+    return
+  }
+  showUnlock.value = false
+  showAd.value = true
+}
+async function onAdDone() {
+  showAd.value = false
+  try {
+    const r = await api.watchAdComplete()
+    await refreshMe()
+    window.$toast(`+${r.coins} coins — unlocking…`)
+    unlockBusy.value = true
+    await confirmUnlock()
+  } catch (e) {
+    if (e.code === 5003) {
+      window.$toast('Daily ad limit reached')
       router.push('/recharge')
     } else {
       window.$toast(e.message)
+      showUnlock.value = true
     }
   } finally {
     unlockBusy.value = false
@@ -150,7 +187,11 @@ function fmt(s) {
             <button class="btn btn-primary" :disabled="unlockBusy" @click="confirmUnlock">
               {{ unlockBusy ? '⏳ Unlocking…' : 'Unlock · ' + currentEp?.price_coins + ' 🪙' }}
             </button>
-            <router-link to="/recharge" class="btn btn-gold">Top Up</router-link>
+            <button
+              v-if="adAvailable() && (store.user?.coins ?? 0) < (currentEp?.price_coins || 0)"
+              class="btn btn-gold" @click="tryAdForUnlock"
+            >▶ Watch Ad +{{ store.adConfig?.rewarded_ad_coins || 50 }} 🪙</button>
+            <router-link to="/recharge" class="btn btn-ghost">Top Up</router-link>
           </div>
         </div>
       </div>
@@ -158,10 +199,16 @@ function fmt(s) {
 
     <div class="ctrl-row">
       <span>{{ fmt(cur) }} / {{ fmt(dur) }}</span>
-      <div class="nav-btns">
-        <button class="btn btn-ghost btn-sm" :disabled="!prevEp" @click="prevEp && switchEp(prevEp)">‹ Prev</button>
-        <button class="btn btn-primary btn-sm" :disabled="!nextEp" @click="nextEp && switchEp(nextEp)">Next Ep ›</button>
-      </div>
+    </div>
+    <div class="ep-nav">
+      <button class="ep-nav-btn" :disabled="!prevEp" @click="prevEp && switchEp(prevEp)">
+        <span class="dir">‹</span>
+        <span class="lbl">{{ prevEp ? 'Ep ' + prevEp.ep_index : 'First' }}</span>
+      </button>
+      <button class="ep-nav-btn primary" :disabled="!nextEp" @click="nextEp && switchEp(nextEp)">
+        <span class="lbl">{{ nextEp ? 'Ep ' + nextEp.ep_index : 'Last' }}</span>
+        <span class="dir">›</span>
+      </button>
     </div>
 
     <div class="section-head"><h3>Episodes</h3></div>
@@ -213,9 +260,21 @@ function fmt(s) {
 .lock-actions { display: flex; gap: 10px; margin-top: 6px; }
 .ctrl-row {
   display: flex; justify-content: space-between; align-items: center;
-  color: var(--muted); font-size: 12px; padding: 10px 2px;
+  color: var(--muted); font-size: 12px; padding: 10px 2px 6px;
 }
-.nav-btns { display: flex; gap: 8px; }
+.ep-nav { display: flex; gap: 10px; margin-bottom: 14px; }
+.ep-nav-btn {
+  flex: 1;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 13px 0;
+  border-radius: 12px;
+  background: var(--bg-elev);
+  font-size: 15px;
+  font-weight: 800;
+}
+.ep-nav-btn .dir { font-size: 18px; opacity: .8; }
+.ep-nav-btn.primary { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; }
+.ep-nav-btn[disabled] { opacity: .4; }
 .eps { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
 .ep {
   position: relative;

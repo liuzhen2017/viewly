@@ -2,6 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { api } from '../api'
 import { store, refreshMe, fmtCoins } from '../store'
+import AdPlayer from '../components/AdPlayer.vue'
 
 const data = ref(null)
 const busy = ref(false)
@@ -53,20 +54,11 @@ function toastGo() {
 // SDK / AppLovin MAX web) and call complete() from its reward callback.
 function watchAd() {
   if (!adTask.value || adTask.value.capped || busy.value) return
-  simulateAd(() => completeAd())
-}
-
-function simulateAd(onDone) {
   adPlaying.value = true
-  adCountdown.value = 5
-  const timer = setInterval(() => {
-    adCountdown.value--
-    if (adCountdown.value <= 0) {
-      clearInterval(timer)
-      adPlaying.value = false
-      onDone()
-    }
-  }, 1000)
+}
+async function onAdDone() {
+  adPlaying.value = false
+  await completeAd()
 }
 
 async function completeAd() {
@@ -165,16 +157,7 @@ async function completeAd() {
       <p>3. Coins can unlock premium episodes.</p>
     </div>
 
-    <!-- simulated rewarded ad player -->
-    <div v-if="adPlaying" class="ad-overlay">
-      <div class="ad-box">
-        <div class="ad-video">
-          <div class="ad-placeholder">Ad playing…</div>
-          <div class="ad-count">{{ adCountdown }}s</div>
-        </div>
-        <p class="ad-note">Reward unlocks after the ad finishes</p>
-      </div>
-    </div>
+    <AdPlayer :visible="adPlaying" @done="onAdDone" @cancel="adPlaying = false" />
   </div>
   <div v-else class="empty" style="padding-top:120px">Loading…</div>
 </template>
@@ -213,24 +196,4 @@ async function completeAd() {
 .rules { color: var(--muted); font-size: 12px; line-height: 1.9; margin-top: 18px; }
 .rules p { margin: 0; }
 .ad-card { border: 1px solid #3d2d0c; }
-.ad-overlay {
-  position: fixed; inset: 0; z-index: 120;
-  background: rgba(0, 0, 0, .8);
-  display: flex; align-items: center; justify-content: center;
-}
-.ad-box { width: 82%; max-width: 340px; }
-.ad-video {
-  position: relative;
-  aspect-ratio: 4/3;
-  border-radius: 14px;
-  background: linear-gradient(135deg, #1f2937, #111827);
-  display: flex; align-items: center; justify-content: center;
-}
-.ad-placeholder { color: #9ca3af; font-size: 15px; }
-.ad-count {
-  position: absolute; top: 10px; right: 12px;
-  background: rgba(0,0,0,.6); border-radius: 8px;
-  padding: 3px 9px; font-size: 12px; font-weight: 700;
-}
-.ad-note { text-align: center; color: var(--muted); font-size: 12px; margin-top: 10px; }
 </style>
