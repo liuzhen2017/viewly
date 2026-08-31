@@ -15,6 +15,18 @@ const playing = ref(false)
 const showUnlock = ref(false)
 const unlockBusy = ref(false)
 const showAd = ref(false)
+const tapToPlay = ref(false)
+
+// in-app webviews (WeChat/TikTok) block autoplay with sound; a real user tap
+// both starts playback and unlocks audio
+function isRestrictedWebview() {
+  const ua = navigator.userAgent
+  return /MicroMessenger|BytedanceWebview|musical_ly|aweme|TikTok/i.test(ua)
+}
+function userPlay() {
+  tapToPlay.value = false
+  videoEl.value && videoEl.value.play().catch(() => {})
+}
 const cur = ref(0)
 const dur = ref(0)
 const isPortrait = ref(false)
@@ -77,7 +89,7 @@ function loadVideo(url) {
   showUnlock.value = false
   const v = videoEl.value
   v.src = url
-  v.play().catch(() => {})
+  v.play().catch(() => { tapToPlay.value = true })
   clearInterval(progressTimer)
   progressTimer = setInterval(report, 10000)
   // advance watch-count tasks shortly after playback starts
@@ -198,6 +210,9 @@ function fmt(s) {
       <video
         ref="videoEl"
         playsinline
+        webkit-playsinline
+        x5-playsinline
+        x5-video-player-type="h5"
         controls
         @play="playing = true"
         @pause="report"
@@ -207,6 +222,10 @@ function fmt(s) {
         @touchstart.passive="onTouchedVideo"
         @touchend.passive="onReleasedVideo"
       ></video>
+      <div v-if="tapToPlay" class="tap-play" @click="userPlay">
+        <div class="tp-circle">▶</div>
+        <p class="tp-tip">{{ isRestrictedWebview() ? 'Tap to play · no sound? open in browser via ⋯ menu' : 'Tap to play' }}</p>
+      </div>
       <div v-if="!videoEl?.src || showUnlock" class="placeholder">
         <img v-if="currentEp" :src="drama.cover" alt="" />
         <div class="lock-overlay" v-if="showUnlock">
@@ -281,6 +300,21 @@ function fmt(s) {
   height: 64vh;
 }
 .video-wrap video { width: 100%; height: 100%; display: block; background: #000; }
+.tap-play {
+  position: absolute; inset: 0; z-index: 5;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+  background: rgba(0, 0, 0, .45);
+}
+.tp-circle {
+  width: 84px; height: 84px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 34px; color: #fff;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, .5);
+  animation: pulse 1.6s ease-in-out infinite;
+}
+.tp-tip { color: rgba(255,255,255,.85); font-size: 12.5px; margin: 0; padding: 0 20px; text-align: center; }
+@keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.08); } }
 .placeholder { position: absolute; inset: 0; }
 .placeholder img { width: 100%; height: 100%; object-fit: cover; opacity: .4; }
 .lock-overlay {

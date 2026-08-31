@@ -76,12 +76,16 @@ async function goWatch(f) {
       @click="openPlayer(f)"
     >
       <img class="bg" :src="f.cover" alt="" />
-      <video playsinline loop muted @click.stop="goWatch(f)"></video>
-      <div class="meta" @click.stop="openPlayer(f)">
+      <!-- preview only: pointer-events off so in-app webviews can't hijack taps -->
+      <video playsinline webkit-playsinline x5-playsinline loop muted></video>
+      <div class="tap-hint">
+        <div class="tap-circle">▶</div>
+      </div>
+      <div class="meta">
         <div class="drama-title">
           <b>{{ f.drama_title }}</b> <span class="badge">{{ f.category }}</span>
         </div>
-        <div class="ep-line">Ep {{ f.ep_index }} · 👁 {{ f.views.toLocaleString() }} · tap to watch ▶</div>
+        <div class="ep-line">Ep {{ f.ep_index }} · 👁 {{ f.views.toLocaleString() }}</div>
       </div>
     </div>
     <div v-if="!feed.length" class="empty" style="padding-top:120px">Loading feed…</div>
@@ -104,7 +108,19 @@ async function goWatch(f) {
   overflow: hidden;
 }
 .feed-item .bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; filter: brightness(.55); }
-.feed-item video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: transparent; }
+.feed-item video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: transparent; pointer-events: none; }
+.tap-hint {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  pointer-events: none;
+}
+.tap-circle {
+  width: 74px; height: 74px; border-radius: 50%;
+  background: rgba(255, 90, 60, .92);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 30px; color: #fff;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, .45);
+}
 .feed-item { cursor: pointer; }
 .meta {
   position: absolute;
