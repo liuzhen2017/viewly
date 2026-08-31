@@ -443,7 +443,7 @@ func (h *Handler) AdminBannerSave(c *gin.Context) {
 	}
 	if p.ID > 0 {
 		res := h.DB.Model(&model.Banner{}).Where("id = ? AND tenant_id = ?", p.ID, h.tID(c)).
-			Select("image", "drama_id", "sort", "status").Updates(&p)
+			Select("image", "link", "drama_id", "sort", "status").Updates(&p)
 		if res.Error != nil || res.RowsAffected == 0 {
 			fail(c, http.StatusInternalServerError, "update failed")
 			return

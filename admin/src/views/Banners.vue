@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { admin } from '../api'
 import { t } from '../i18n'
@@ -11,7 +11,17 @@ const busy = ref(false)
 const imgInput = ref(null)
 const uploading = ref(0)
 const uploadPct = ref(0)
-const form = ref({ image: '', drama_id: 0, sort: 0 })
+const form = ref({ image: '', drama_id: 0, sort: 0, link: '' })
+const jumpMode = ref('drama')  // drama | custom | none
+
+watch(() => dialog.value, v => {
+  if (v) jumpMode.value = form.value.link ? 'custom' : (form.value.drama_id ? 'drama' : 'none')
+})
+watch(jumpMode, m => {
+  if (m === 'custom') form.value.drama_id = 0
+  if (m === 'drama') form.value.link = ''
+  if (m === 'none') { form.value.drama_id = 0; form.value.link = '' }
+})
 
 async function load() {
   list.value = await admin.banners()
@@ -25,7 +35,7 @@ onMounted(async () => {
 })
 
 function openCreate() {
-  form.value = { image: '', drama_id: 0, sort: (list.value.length + 1) * 10 }
+  form.value = { image: '', drama_id: 0, sort: (list.value.length + 1) * 10, link: '' }
   dialog.value = true
 }
 function openEdit(row) {
@@ -96,6 +106,13 @@ const dramaById = id => dramas.value.find(d => d.id === id)
           {{ dramaById(row.drama_id)?.title || (row.drama_id ? '#' + row.drama_id : '—') }}
         </template>
       </el-table-column>
+      <el-table-column :label="t('jumpTo')" min-width="140">
+        <template #default="{ row }">
+          <span v-if="row.link" style="color:#409eff">{{ row.link.slice(0, 28) }}</span>
+          <span v-else-if="row.drama_id">{{ dramaById(row.drama_id)?.title || '#' + row.drama_id }} ▶</span>
+          <span v-else style="color:#999">—</span>
+        </template>
+      </el-table-column>
       <el-table-column prop="sort" :label="t('sort')" width="80" />
       <el-table-column :label="t('actions')" width="170">
         <template #default="{ row }">
@@ -130,6 +147,24 @@ const dramaById = id => dramas.value.find(d => d.id === id)
             </div>
           </el-option>
         </el-select>
+      </el-form-item>
+      <el-form-item :label="t('jumpTo')">
+        <div style="display:flex;flex-direction:column;gap:8px;width:100%">
+          <el-radio-group v-model="jumpMode">
+            <el-radio-button value="drama">{{ t('jumpDrama') }}</el-radio-button>
+            <el-radio-button value="custom">URL</el-radio-button>
+            <el-radio-button value="none">✕</el-radio-button>
+          </el-radio-group>
+          <el-select v-if="jumpMode === 'drama'" v-model="form.drama_id" clearable style="width:100%">
+            <el-option v-for="d in dramas" :key="d.id" :value="d.id" :label="d.title">
+              <div style="display:flex;align-items:center;gap:8px">
+                <img :src="d.cover" style="width:24px;height:32px;object-fit:cover;border-radius:3px" />
+                <span>{{ d.title }}</span>
+              </div>
+            </el-option>
+          </el-select>
+          <el-input v-if="jumpMode === 'custom'" v-model="form.link" placeholder="https://… 或 #/player/1/2" />
+        </div>
       </el-form-item>
       <el-form-item :label="t('sort')">
         <el-input-number v-model="form.sort" :min="0" />

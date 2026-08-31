@@ -95,7 +95,7 @@ func (h *Handler) Home(c *gin.Context) {
 	// banner drama titles resolved by the JOIN above
 	bannerOut := make([]gin.H, 0, len(bannerRows))
 	for _, b := range bannerRows {
-		item := gin.H{"image": b.Image, "drama_id": b.DramaID}
+		item := gin.H{"image": b.Image, "drama_id": b.DramaID, "link": b.Link}
 		if b.DramaID > 0 {
 			if b.DramaTitle != nil {
 				item["title"] = *b.DramaTitle

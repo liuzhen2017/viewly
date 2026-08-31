@@ -34,6 +34,15 @@ const nextEp = computed(() => {
 
 onMounted(async () => {
   drama.value = await api.drama(route.params.dramaId)
+  // episodeId 0 = banner deep-link: jump to the first playable episode
+  if (String(route.params.episodeId) === '0') {
+    const first = drama.value.episodes.find(e => e.accessible) || drama.value.episodes[0]
+    if (first) {
+      router.replace(`/player/${drama.value.id}/${first.id}`)
+      await tryPlay(first.id)
+      return
+    }
+  }
   await tryPlay(route.params.episodeId)
 })
 

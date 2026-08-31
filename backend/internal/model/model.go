@@ -134,6 +134,7 @@ type Banner struct {
 	ID        uint64    `gorm:"primaryKey" json:"id"`
 	TenantID  uint64    `json:"tenant_id"`
 	Image     string    `gorm:"size:500" json:"image"`
+	Link      string    `gorm:"size:500" json:"link"`
 	DramaID   uint64    `json:"drama_id"`
 	Sort      int       `json:"sort"`
 	Status    int8      `json:"status"`

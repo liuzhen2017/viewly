@@ -1,9 +1,11 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { api } from '../api'
 import { store, fmtCoins } from '../store'
 import DramaCard from '../components/DramaCard.vue'
 
+const router = useRouter()
 const data = ref(null)
 const error = ref('')
 const bannerEl = ref(null)
@@ -24,6 +26,15 @@ function startAuto() {
   autoTimer = setInterval(() => { if (bannerCount.value > 1) slideTo(bannerIdx.value + 1) }, 3500)
 }
 function stopAuto() { clearInterval(autoTimer) }
+// banner jump: custom link wins, then drama -> straight into its player (ep 0 = first)
+function openBanner(b) {
+  if (b.link) {
+    if (b.link.startsWith('#')) location.hash = b.link.slice(1)
+    else location.href = b.link
+    return
+  }
+  if (b.drama_id) router.push(`/player/${b.drama_id}/0`)
+}
 function onTouchStart() { stopAuto(); clearTimeout(resumeTimer) }
 function onTouchEnd() { resumeTimer = setTimeout(startAuto, 4000) }
 
@@ -60,14 +71,14 @@ onBeforeUnmount(() => { stopAuto(); clearTimeout(resumeTimer) })
       <!-- banner carousel -->
       <div class="banner-wrap">
         <div class="banners" ref="bannerEl" @touchstart.passive="onTouchStart" @touchend.passive="onTouchEnd">
-          <router-link
+          <div
             v-for="b in data.banners"
-            :key="b.image"
-            :to="b.drama_id ? `/drama/${b.drama_id}` : '/#'"
+            :key="b.image + (b.link || '') + b.drama_id"
             class="banner"
+            @click="openBanner(b)"
           >
             <img :src="b.image" alt="" />
-          </router-link>
+          </div>
         </div>
         <div v-if="bannerCount > 1" class="dots">
           <span
@@ -161,6 +172,7 @@ onBeforeUnmount(() => { stopAuto(); clearTimeout(resumeTimer) })
   border-radius: 14px;
   overflow: hidden;
   aspect-ratio: 16 / 7.5;
+  cursor: pointer;
 }
 .banner img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .grid {
