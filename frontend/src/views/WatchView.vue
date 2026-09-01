@@ -1,7 +1,10 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { useRouter } from 'vue-router'
 import { api } from '../api'
 import { store, fmtCoins } from '../store'
+
+const router = useRouter()
 
 // TikTok-style vertical feed: full-viewport cards with scroll-snap; only the
 // visible card plays (IntersectionObserver pauses the rest).
@@ -55,16 +58,30 @@ function onScroll() {
   })
 }
 
-async function goWatch(f) {
+function openPlayer(f) {
+  router.push(`/player/${f.drama_id}/${f.episode_id}`)
+}
+
+// Prev/Next from the feed card: lazily fetch the drama's episode list once,
+// then jump straight into the fullscreen player at the target episode.
+const dramaCache = {}
+async function openEpisode(f, dir) {
   try {
-    const r = await api.play(f.episode_id)
-    const i = feed.value.findIndex(x => x.episode_id === f.episode_id)
-    if (i >= 0) {
-      const card = document.querySelector(`[data-key="ep${f.episode_id}"] video`)
-      if (card) { card.src = r.video_url; card.play().catch(() => {}) }
+    let d = dramaCache[f.drama_id]
+    if (!d) {
+      d = await api.drama(f.drama_id)
+      dramaCache[f.drama_id] = d
     }
+    const eps = (d.episodes || []).slice().sort((a, b) => a.ep_index - b.ep_index)
+    const idx = eps.findIndex(e => e.ep_index === f.ep_index)
+    const target = eps[idx + dir]
+    if (!target) {
+      window.$toast(dir > 0 ? 'Already the last episode' : 'Already Ep 1')
+      return
+    }
+    router.push(`/player/${f.drama_id}/${target.id}`)
   } catch (e) {
-    window.$toast(e.code === 402 ? `🔒 ${f.price_coins} coins to unlock` : e.message)
+    window.$toast(e.message)
   }
 }
 </script>
@@ -85,7 +102,11 @@ async function goWatch(f) {
         <div class="drama-title">
           <b>{{ f.drama_title }}</b> <span class="badge">{{ f.category }}</span>
         </div>
-        <div class="ep-line">Ep {{ f.ep_index }} · 👁 {{ f.views.toLocaleString() }}</div>
+        <div class="ep-line">
+          <button class="ep-btn" :disabled="f.ep_index <= 1" @click.stop="openEpisode(f, -1)">‹ Prev</button>
+          <span class="ep-num">Ep {{ f.ep_index }} · 👁 {{ f.views.toLocaleString() }}</span>
+          <button class="ep-btn" @click.stop="openEpisode(f, 1)">Next ›</button>
+        </div>
       </div>
     </div>
     <div v-if="!feed.length" class="empty" style="padding-top:120px">Loading feed…</div>
@@ -128,7 +149,20 @@ async function goWatch(f) {
   display: flex; flex-direction: column; gap: 8px;
 }
 .drama-title { font-size: 16px; display: flex; align-items: center; gap: 8px; }
-.ep-line { color: rgba(255,255,255,.75); font-size: 12.5px; }
+.ep-line {
+  color: rgba(255,255,255,.75); font-size: 12.5px;
+  display: flex; align-items: center; gap: 10px;
+}
+.ep-btn {
+  padding: 9px 18px; border-radius: 999px;
+  background: rgba(255, 90, 60, .9); color: #fff;
+  font-size: 14px; font-weight: 600;
+  border: none; cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .35);
+}
+.ep-btn:disabled { background: rgba(255,255,255,.18); color: rgba(255,255,255,.5); }
+.ep-btn:not(:disabled):active { transform: scale(.94); }
+.ep-num { min-width: 86px; text-align: center; }
 .row { display: flex; gap: 10px; margin-top: 4px; }
 .play-btn { padding: 11px 28px; }
 </style>
