@@ -30,10 +30,19 @@ function authHeaders() {
 export const setRole = (r) => localStorage.setItem(ROLE_KEY, r)
 export const clearToken = () => { localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(ROLE_KEY) }
 
+// fetch with a hard timeout: without this a silently-dropped connection
+// (proxy node cycling, CF stall) hangs forever and freezes the whole batch.
+function fetchT(url, opts = {}, ms = 30000) {
+  const ctl = new AbortController()
+  const timer = setTimeout(() => ctl.abort(), ms)
+  return fetch(url, { ...opts, signal: ctl.signal })
+    .finally(() => clearTimeout(timer))
+}
+
 export async function req(path, { method = 'GET', body } = {}) {
   const headers = { 'Content-Type': 'application/json', 'X-Tenant-Slug': tenantSlug() }
   if (getToken()) headers.Authorization = 'Bearer ' + getToken()
-  const res = await fetch(path, {
+  const res = await fetchT(path, {
     method, headers,
     body: body !== undefined ? JSON.stringify(body) : undefined,
   })
@@ -87,13 +96,15 @@ export async function uploadLargeFile(file, onProgress) {
 
   const uploadChunk = async partNo => {
     const blob = file.slice((partNo - 1) * CHUNK_SIZE, Math.min(partNo * CHUNK_SIZE, file.size))
-    for (let attempt = 0; attempt < 3; attempt++) {
+    for (let attempt = 0; attempt < 4; attempt++) {
       try {
         const fd = new FormData()
         fd.append('chunk', blob)
-        const r = await fetch(base + '/api/admin/uploads/mp/chunk?upload_id=' + uploadId + '&part=' + partNo, {
+        // 180s hard timeout: a 16MB chunk needs ~107s even at 0.15MB/s, so this
+        // only fires on a truly dead connection — then the retry takes over.
+        const r = await fetchT(base + '/api/admin/uploads/mp/chunk?upload_id=' + uploadId + '&part=' + partNo, {
           method: 'POST', body: fd, headers: authHeaders(),
-        })
+        }, 180000)
         const d = await r.json()
         if (d.code !== 0) throw new Error(d.msg)
         parts.push({ part: partNo, etag: d.data.etag })
@@ -101,7 +112,7 @@ export async function uploadLargeFile(file, onProgress) {
         if (onProgress) onProgress(Math.round(doneBytes / file.size * 100))
         return
       } catch (e) {
-        if (attempt === 2) throw new Error('chunk ' + partNo + ' failed: ' + e.message)
+        if (attempt === 3) throw new Error('chunk ' + partNo + ' failed: ' + (e.name === 'AbortError' ? 'timeout' : e.message))
         await new Promise(r2 => setTimeout(r2, 1000 * (attempt + 1)))
       }
     }
@@ -121,10 +132,10 @@ export async function uploadLargeFile(file, onProgress) {
     throw e
   }
   parts.sort((a, b) => a.part - b.part)
-  const done = await fetch(base + '/api/admin/uploads/mp/complete', {
+  const done = await fetchT(base + '/api/admin/uploads/mp/complete', {
     method: 'POST', headers: { ...authHeaders(), 'Content-Type': 'application/json' },
     body: JSON.stringify({ upload_id: uploadId, parts }),
-  }).then(r => r.json())
+  }, 60000).then(r => r.json())
   if (done.code !== 0) throw new Error(done.msg)
   return done.data
 }
@@ -184,6 +195,8 @@ export const admin = {
       } catch { reject(new Error('upload failed: HTTP ' + xhr.status)) }
     }
     xhr.onerror = () => reject(new Error(direct ? 'direct route unreachable' : 'network error'))
+    xhr.timeout = 120000
+    xhr.ontimeout = () => reject(new Error(direct ? 'direct route timeout' : 'upload timeout'))
     xhr.send(fd)
   }),
   saveAdSettings: (s) => req('/api/admin/ad-settings', { method: 'PUT', body: s }),
