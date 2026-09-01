@@ -130,6 +130,10 @@ func (h *Handler) AdsTxt(c *gin.Context) {
 		if len(parts) >= 2 {
 			slug = parts[0]
 		}
+		// mirror the frontend: apex and reserved labels serve the main tenant
+		if len(parts) <= 2 || slug == "www" || slug == "api" || slug == "admin" || slug == "cdn" {
+			slug = "main"
+		}
 	}
 	var t model.Tenant
 	if err := h.DB.Where("slug = ? AND status = 1", slug).First(&t).Error; err != nil {
