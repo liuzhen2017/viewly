@@ -14,6 +14,7 @@ export const router = createRouter({
       { path: 'users', component: () => import('./views/Users.vue') },
       { path: 'orders', component: () => import('./views/Orders.vue') },
       { path: 'tenants', component: () => import('./views/Tenants.vue') },
+      { path: 'tiktok', component: () => import('./views/TikTok.vue') },
       { path: 'ad-settings', component: () => import('./views/AdSettings.vue') },
     ] },
   ],

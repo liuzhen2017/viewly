@@ -17,6 +17,7 @@ const menus = computed(() => {
     { path: '/users', key: 'users' },
     { path: '/orders', key: 'orders' },
   ]
+  base.push({ path: '/tiktok', key: 'tiktokPage' })
   base.push({ path: '/ad-settings', key: 'adSettings' })
   if (isSuper) base.push({ path: '/tenants', key: 'tenantSite' })
   return base

@@ -30,6 +30,12 @@ type Config struct {
 		Bucket  string `mapstructure:"bucket"`
 		CDNBase string `mapstructure:"cdn_base"`
 	} `mapstructure:"aws"`
+
+	TikTok struct {
+		ClientKey    string `mapstructure:"client_key"`
+		ClientSecret string `mapstructure:"client_secret"`
+		RedirectURL  string `mapstructure:"redirect_url"`
+	} `mapstructure:"tiktok"`
 }
 
 func Load(path string) (*Config, error) {

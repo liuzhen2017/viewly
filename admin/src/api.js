@@ -202,6 +202,15 @@ export const admin = {
   }),
   saveAdSettings: (s) => req('/api/admin/ad-settings', { method: 'PUT', body: s }),
 
+  ttConnectURL: () => req('/api/admin/tiktok/connect-url'),
+  ttAccounts: () => req('/api/admin/tiktok/accounts'),
+  ttDeleteAccount: (id) => req(`/api/admin/tiktok/accounts/${id}`, { method: 'DELETE' }),
+  ttClips: () => req('/api/admin/tiktok/clips'),
+  ttSaveClip: (c) => req('/api/admin/tiktok/clips', { method: 'POST', body: c }),
+  ttDeleteClip: (id) => req(`/api/admin/tiktok/clips/${id}`, { method: 'DELETE' }),
+  ttPublish: (payload) => req('/api/admin/tiktok/publish', { method: 'POST', body: payload }),
+  ttPosts: (status = '') => req(`/api/admin/tiktok/posts${status ? '?status=' + status : ''}`),
+
   orders: (page = 1, status = '') => req(`/api/admin/orders?page=${page}&size=20&status=${status}`),
   markPaid: (orderNo) => req(`/api/admin/orders/${orderNo}/mark-paid`, { method: 'POST' }),
 }

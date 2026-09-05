@@ -285,3 +285,51 @@ type AppConfig struct {
 }
 
 func (AppConfig) TableName() string { return "app_configs" }
+
+// ---------- TikTok hosting + publishing ----------
+
+type TikTokAccount struct {
+	ID               uint64    `gorm:"primaryKey" json:"id"`
+	TenantID         uint64    `gorm:"index" json:"tenant_id"`
+	OpenID           string    `gorm:"size:64" json:"open_id"`
+	DisplayName      string    `gorm:"size:128" json:"display_name"`
+	Avatar           string    `gorm:"size:500" json:"avatar"`
+	AccessToken      string    `gorm:"size:512" json:"-"`
+	RefreshToken     string    `gorm:"size:512" json:"-"`
+	AccessExpiresAt  time.Time `json:"access_expires_at"`
+	RefreshExpiresAt time.Time `json:"refresh_expires_at"`
+	Scope            string    `gorm:"size:255" json:"scope"`
+	Status           int8      `json:"status"`
+	CreatedAt        time.Time `json:"created_at"`
+}
+
+func (TikTokAccount) TableName() string { return "tiktok_accounts" }
+
+type TikTokClip struct {
+	ID          uint64     `gorm:"primaryKey" json:"id"`
+	TenantID    uint64     `gorm:"index" json:"tenant_id"`
+	Title       string     `gorm:"size:255" json:"title"`
+	VideoURL    string     `gorm:"size:500" json:"video_url"`
+	SizeBytes   int64      `json:"size_bytes"`
+	DurationSec int        `json:"duration_sec"`
+	UsedAt      *time.Time `json:"used_at"`
+	CreatedAt   time.Time  `json:"created_at"`
+}
+
+func (TikTokClip) TableName() string { return "tiktok_clips" }
+
+type TikTokPost struct {
+	ID           uint64    `gorm:"primaryKey" json:"id"`
+	TenantID     uint64    `gorm:"index" json:"tenant_id"`
+	AccountID    uint64    `gorm:"index" json:"account_id"`
+	ClipID       uint64    `json:"clip_id"`
+	Title        string    `gorm:"size:2200" json:"title"`
+	PrivacyLevel string    `gorm:"size:32" json:"privacy_level"`
+	Status       string    `gorm:"size:20;default:queued" json:"status"` // queued|uploading|processing|published|failed
+	PublishID    string    `gorm:"size:128" json:"publish_id"`
+	Error        string    `gorm:"size:500" json:"error"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+}
+
+func (TikTokPost) TableName() string { return "tiktok_posts" }

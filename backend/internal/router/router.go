@@ -158,6 +158,17 @@ func Setup(db *gorm.DB, cfg *config.Config, h *handler.Handler) *gin.Engine {
 		adminAuth.POST("/users/adjust", h.AdminAdjustCoins)
 		adminAuth.GET("/orders", h.AdminOrderList)
 		adminAuth.POST("/orders/:orderNo/mark-paid", h.AdminMarkPaid)
+
+		// TikTok account hosting + one-click publishing
+		api.GET("/tiktok/callback", h.TikTokCallback)
+		adminAuth.GET("/tiktok/connect-url", h.TikTokConnectURL)
+		adminAuth.GET("/tiktok/accounts", h.TikTokAccounts)
+		adminAuth.DELETE("/tiktok/accounts/:id", h.TikTokAccountDelete)
+		adminAuth.GET("/tiktok/clips", h.TikTokClips)
+		adminAuth.POST("/tiktok/clips", h.TikTokClipSave)
+		adminAuth.DELETE("/tiktok/clips/:id", h.TikTokClipDelete)
+		adminAuth.POST("/tiktok/publish", h.TikTokPublish)
+		adminAuth.GET("/tiktok/posts", h.TikTokPosts)
 	}
 
 	return r
