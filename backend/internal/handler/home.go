@@ -278,6 +278,7 @@ func (h *Handler) Feed(c *gin.Context) {
 		EpIndex     int    `json:"ep_index"`
 		EpTitle     string `json:"ep_title"`
 		PriceCoins  int    `json:"price_coins"`
+		VideoURL    string `json:"video_url"`
 		DramaID     uint64 `json:"drama_id"`
 		DramaTitle  string `json:"drama_title"`
 		Cover       string `json:"cover"`
@@ -288,7 +289,7 @@ func (h *Handler) Feed(c *gin.Context) {
 	var items []feedItem
 	if dbFailed(c, h.DB.Raw(`
 		SELECT e.id AS episode_id, e.ep_index, CONCAT(d.title, ' - Ep ', e.ep_index) AS ep_title,
-		       e.price_coins, d.id AS drama_id, d.title AS drama_title, d.cover, d.tags,
+		       e.price_coins, e.video_url, d.id AS drama_id, d.title AS drama_title, d.cover, d.tags,
 		       COALESCE(c.name, '') AS category, d.views
 		FROM episodes e
 		JOIN dramas d ON d.id = e.drama_id AND d.status = 1
@@ -312,11 +313,18 @@ func (h *Handler) Feed(c *gin.Context) {
 			h.DB.Model(&model.EpisodeUnlock{}).Where("user_id = ? AND episode_id = ?", u.(*model.User).ID, it.EpisodeID).Count(&cnt)
 			acc = cnt > 0
 		}
+		// video URL only for episodes the viewer can actually watch:
+		// the feed card previews it (muted autoplay); paid/unwatched ones
+		// fall back to the cover + a tap into the unlock flow.
+		vu := ""
+		if acc {
+			vu = it.VideoURL
+		}
 		out = append(out, gin.H{
 			"episode_id": it.EpisodeID, "ep_index": it.EpIndex, "title": it.EpTitle,
 			"drama_id": it.DramaID, "drama_title": it.DramaTitle, "cover": it.Cover,
 			"tags": it.Tags, "category": it.Category, "views": it.Views,
-			"price_coins": it.PriceCoins, "accessible": acc,
+			"price_coins": it.PriceCoins, "accessible": acc, "video_url": vu,
 		})
 	}
 	ok(c, out)

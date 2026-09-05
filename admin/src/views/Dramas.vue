@@ -19,6 +19,8 @@ const epForm = ref({})
 const videoInput = ref(null)
 const coverInput = ref(null)
 const batchInput = ref(null)
+const filesInput = ref(null)
+const selEps = ref([])
 const uploading = ref(0)
 const uploadPct = ref(0)
 const batch = ref({ total: 0, done: 0, name: '' })
@@ -38,7 +40,11 @@ function readDuration(file) {
 }
 
 function pickBatch() { batchInput.value && batchInput.value.click() }
+function pickFiles() { filesInput.value && filesInput.value.click() }
 
+// shared batch runner — used by both the folder picker and the multi-file
+// picker (multi-select in chunks of 10–20 has a much better success rate
+// than one giant 100-file folder run)
 async function onBatchPicked(e) {
   const files = [...(e.target.files || [])].filter(f => VIDEO_EXT.test(f.name)).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
   e.target.value = ''
@@ -62,6 +68,19 @@ async function onBatchPicked(e) {
   ElMessage.success(`Batch done: ${ok} ok${fail ? ', ' + fail + ' failed' : ''}`)
   eps.value = await admin.episodes(epDrama.value.id)
   batch.value = { total: 0, done: 0, name: '' }
+}
+
+async function batchSetPrice() {
+  if (!selEps.value.length) return
+  try {
+    const { value } = await ElMessageBox.prompt(t('batchPricePrompt') + ` (${selEps.value.length})`, t('batchPrice'), {
+      inputPattern: /^\d+$/, inputErrorMessage: '0-9999',
+      confirmButtonText: t('save'), cancelButtonText: t('cancel'),
+    })
+    const r = await admin.batchPrice(selEps.value.map(x => x.id), Number(value))
+    ElMessage.success(r.updated + t('batchPriceOn'))
+    eps.value = await admin.episodes(epDrama.value.id)
+  } catch (e) { /* cancelled */ }
 }
 
 // browser-direct S3 upload: presign from backend, PUT from this page
@@ -241,14 +260,22 @@ async function removeEp(e) {
 
   <!-- episodes dialog -->
   <el-dialog v-model="epDialog" :title="t('episodesOf', { title: epDrama?.title || '' })" width="720px">
-    <div style="display:flex;gap:8px">
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
       <el-button size="small" type="primary" @click="openEpCreate">{{ t('addEpisode') }}</el-button>
       <el-button size="small" type="success" :disabled="batch.total > 0" @click="pickBatch">
         {{ batch.total ? t('batchUploading') + ' ' + batch.done + '/' + batch.total + (batch.name ? ' · ' + uploadPct + '%' : '') : t('batchUpload') }}
       </el-button>
+      <el-button size="small" type="success" plain :disabled="batch.total > 0" @click="pickFiles">
+        {{ batch.total ? t('batchUploading') + ' ' + batch.done + '/' + batch.total + (batch.name ? ' · ' + uploadPct + '%' : '') : t('pickFiles') }}
+      </el-button>
+      <el-button size="small" type="warning" :disabled="!selEps.length" @click="batchSetPrice">
+        {{ t('batchPrice') }}{{ selEps.length ? ' (' + selEps.length + ')' : '' }}
+      </el-button>
       <input ref="batchInput" type="file" hidden webkitdirectory @change="onBatchPicked" />
+      <input ref="filesInput" type="file" hidden multiple accept="video/*,.m3u8,.ts" @change="onBatchPicked" />
     </div>
-    <el-table :data="eps" size="small" style="margin-top:10px">
+    <el-table :data="eps" size="small" style="margin-top:10px" @selection-change="selEps = $event">
+      <el-table-column type="selection" width="42" />
       <el-table-column prop="ep_index" label="#" width="50" />
       <el-table-column prop="title" :label="t('epTitle')" min-width="160" />
       <el-table-column :label="t('epPrice')" width="90">

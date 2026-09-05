@@ -386,6 +386,33 @@ func (h *Handler) AdminEpisodeDelete(c *gin.Context) {
 	ok(c, gin.H{"deleted": true})
 }
 
+type episodeBatchPriceReq struct {
+	IDs        []uint64 `json:"ids" binding:"required"`
+	PriceCoins int      `json:"price_coins"`
+}
+
+// PUT /api/admin/episodes/batch-price — set the same coin price on many
+// episodes at once (setting 30+ episodes one by one was painful).
+func (h *Handler) AdminEpisodeBatchPrice(c *gin.Context) {
+	var req episodeBatchPriceReq
+	if err := c.ShouldBindJSON(&req); err != nil || len(req.IDs) == 0 {
+		fail(c, http.StatusBadRequest, "ids required")
+		return
+	}
+	if req.PriceCoins < 0 {
+		fail(c, http.StatusBadRequest, "price_coins must be >= 0")
+		return
+	}
+	res := h.DB.Model(&model.Episode{}).
+		Where("id IN ? AND tenant_id = ?", req.IDs, h.tID(c)).
+		Update("price_coins", req.PriceCoins)
+	if res.Error != nil {
+		fail(c, http.StatusInternalServerError, "update failed")
+		return
+	}
+	ok(c, gin.H{"updated": res.RowsAffected})
+}
+
 // ---------- categories / banners ----------
 
 func (h *Handler) AdminCategoryList(c *gin.Context) {

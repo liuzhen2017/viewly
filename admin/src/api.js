@@ -152,6 +152,7 @@ export const admin = {
   episodes: (dramaId) => req(`/api/admin/episodes?drama_id=${dramaId}`),
   saveEpisode: (e) => e.id ? req(`/api/admin/episodes/${e.id}`, { method: 'PUT', body: e }) : req('/api/admin/episodes', { method: 'POST', body: e }),
   deleteEpisode: (id) => req(`/api/admin/episodes/${id}`, { method: 'DELETE' }),
+  batchPrice: (ids, priceCoins) => req('/api/admin/episodes/batch-price', { method: 'PUT', body: { ids, price_coins: priceCoins } }),
 
   categories: () => req('/api/admin/categories'),
   saveCategory: (c) => req('/api/admin/categories', { method: 'POST', body: c }),

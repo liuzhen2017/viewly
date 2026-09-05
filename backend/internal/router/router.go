@@ -138,6 +138,7 @@ func Setup(db *gorm.DB, cfg *config.Config, h *handler.Handler) *gin.Engine {
 
 		adminAuth.GET("/episodes", h.AdminEpisodeList)
 		adminAuth.POST("/episodes", h.AdminEpisodeSave)
+		adminAuth.PUT("/episodes/batch-price", h.AdminEpisodeBatchPrice)
 		adminAuth.PUT("/episodes/:id", h.AdminEpisodeSave)
 		adminAuth.DELETE("/episodes/:id", h.AdminEpisodeDelete)
 
