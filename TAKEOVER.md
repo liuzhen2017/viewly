@@ -16,7 +16,7 @@ Cloudflare (DNS+CDN+SSL, 免费版)
    └── upload.likeviewly.com(DNS-only) → 阿里云香港中转(8.218.36.231, nginx 反代) → EC2
                                         （大陆上传加速专用，为什么走它：CF 免费版 100MB 请求体上限 + 大陆直连慢）
 
-AWS EC2 (i-0fc3dcf22007a2776, 香港ap-east-1, EIP 95.41.49.139, t3.small 2GB)
+AWS EC2 (i-0725beea79ab9f1ac, 香港ap-east-1, EIP 95.41.49.139, t4g.small ARM 2GB — 2026-09-11 由 t3.small i-0fc3dcf22007a2776 迁移而来，旧机已停用待删除)
    ├── Go 二进制 /opt/viewly/server（systemd 服务名 viewly）
    ├── 配置     /opt/viewly/config.yaml（真实密钥，不入库）
    ├── MySQL    本机 127.0.0.1（库名 cascade-app，用户 viewly）
@@ -44,7 +44,7 @@ git clone https://github.com/liuzhen2017/viewly.git
 | 方式 | 步骤 | 适合 |
 |---|---|---|
 | **A. AWS 网页终端（最快，零配置）** | AWS 控制台 → EC2 → 选中 i-0fc3dcf22007a2776 → 「连接」→ EC2 Instance Connect → 浏览器里直接开终端 | 临时运维 |
-| B. 原有 SSH 密钥 | 原 Mac 上 `~/.ssh/viewly_hk` 这个私钥文件拷到你电脑的 `~/.ssh/`，然后 `ssh -i ~/.ssh/viewly_hk ubuntu@95.41.49.139` | 长期使用 |
+| B. 原有 SSH 密钥 | 原 Mac 上 `~/.ssh/viewly_hk` 这个私钥文件拷到你电脑的 `~/.ssh/`，然后 `ssh -i ~/.ssh/viewly_hk ubuntu@95.41.49.139`（密钥对名 viewly-hk；ARM 机的二进制要 GOARCH=arm64 编译）| 长期使用 |
 | C. 你自己的新密钥（推荐） | 你电脑上 `ssh-keygen -t ed25519 -f ~/.ssh/viewly_hk` 生成，然后把 `cat ~/.ssh/viewly_hk.pub` 的内容追加到 EC2 的 `/home/ubuntu/.ssh/authorized_keys`（用方式 A 进去改） | 长期使用，不依赖旧机器 |
 
 阿里云中转机：`ssh root@8.218.36.231`（密码问项目交接人；配置在 `/etc/nginx/sites-available/upload-relay`，备份同名 .bak）
