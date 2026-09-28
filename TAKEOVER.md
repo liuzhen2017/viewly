@@ -1,6 +1,6 @@
 # Viewly / FoxDrama 项目接管指南
 
-> 更新：2026-09-06 · 最新提交 `5d5b10c` · 生产站 https://www.likeviewly.com（H5）/ https://admin.likeviewly.com（后台）
+> 更新：2026-09-11 · 最新提交 `ea7997a` · **⏸️ 项目已暂停（2026-09-11）：实例已停机、弹性 IP 已释放、旧机已删除；磁盘+S3 保留（~¥25/月）。恢复方法见文末 §10**
 
 ## 1. 项目组成
 
@@ -136,3 +136,15 @@ sudo journalctl -u viewly -b -1                       # 上次重启前的日志
 # 上传卡死排查：看阿里云中转 access log 是否有 chunk 流入
 # 播放卡死排查：先 ffprobe 该视频 moov 位置（moov 在尾部 = 需 remux）
 ```
+
+## 10. 暂停与恢复（2026-09-11 起）
+
+**当前状态**：服务器 i-0725beea79ab9f1ac 已停机（数据全保留在 30GB 磁盘）；弹性 IP 95.41.49.139 已释放（恢复时会分配新 IP）；旧实例已删除。仍在计费：磁盘 $2.4/月 + S3 ~$1.1/月。
+
+**恢复步骤**（约 10 分钟）：
+1. CloudShell：`aws ec2 start-instances --region ap-east-1 --instance-ids i-0725beea79ab9f1ac`
+2. 分配并绑定新弹性 IP：`aws ec2 allocate-address` → `aws ec2 associate-address --instance-id i-0725beea79ab9f1ac --allocation-id <新id>`，记下新 IP
+3. Cloudflare 后台把 www / api / admin / 根域 / upload 五条 A 记录的 95.41.49.139 改成新 IP（cdn 那条是 CNAME 不用动）
+4. 阿里云中转（8.218.36.231）：改 `/etc/nginx/sites-available/upload-relay` 里的 proxy_pass IP 为新 IP，`nginx -s reload`
+5. 验证：www/api/admin 打开、ads.txt 正常、后台传一个测试文件走通上传链路
+6. 若 HTTPS 证书过期（超 90 天没运行）：SSH 上去跑 `sudo certbot renew --force-renewal`（需要 DNS 已指好）
