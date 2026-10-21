@@ -36,6 +36,10 @@ type Config struct {
 		ClientSecret string `mapstructure:"client_secret"`
 		RedirectURL  string `mapstructure:"redirect_url"`
 	} `mapstructure:"tiktok"`
+
+	TkPostAI struct {
+		SigningKey string `mapstructure:"signing_key"`
+	} `mapstructure:"tkpostai"`
 }
 
 func Load(path string) (*Config, error) {

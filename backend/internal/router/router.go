@@ -86,6 +86,8 @@ func Setup(db *gorm.DB, cfg *config.Config, h *handler.Handler) *gin.Engine {
 		user.POST("/rewards/tasks/:key/claim", h.ClaimTask)
 		user.POST("/rewards/tasks/share/progress", h.ShareProgress)
 		user.POST("/rewards/watch-ad/complete", h.WatchAdComplete)
+		user.POST("/tkpostai/link", h.TKPostAILink)
+		user.GET("/tkpostai/entries", h.TKPostAIEntries)
 
 		// payment/ad provider webhooks are public; auth is signature-based
 		api.POST("/webhooks/stripe", h.StripeWebhook)

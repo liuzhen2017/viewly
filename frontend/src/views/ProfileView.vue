@@ -46,6 +46,7 @@ import { store, fmtCoins } from '../store'
       <router-link class="mi" to="/recharge"><span>💎 Recharge / VIP</span><i>›</i></router-link>
       <router-link class="mi" to="/history"><span>🕘 Watch History</span><i>›</i></router-link>
       <router-link class="mi" to="/playlist"><span>📚 My Playlist</span><i>›</i></router-link>
+      <router-link class="mi" to="/promote"><span>🚀 Promote &amp; Earn</span><i>›</i></router-link>
       <router-link v-if="!store.user?.email" class="mi" to="/login"><span>📧 Bind Email (keep your coins safe)</span><i>›</i></router-link>
     </div>
 

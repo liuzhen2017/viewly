@@ -26,6 +26,7 @@ export const router = createRouter({
     { path: '/watch', name: 'watch', component: WatchView, meta: { tab: 'watch' } },
     { path: '/rewards', name: 'rewards', component: RewardsView, meta: { tab: 'rewards' } },
     { path: '/playlist', name: 'playlist', component: PlaylistView, meta: { tab: 'playlist' } },
+    { path: '/promote', name: 'promote', component: PromoteView, meta: { tab: 'profile' } },
     { path: '/profile', name: 'profile', component: ProfileView, meta: { tab: 'profile' } },
     { path: '/wallet', name: 'wallet', component: WalletView },
     { path: '/recharge', name: 'recharge', component: RechargeView, meta: { tab: 'profile' } },

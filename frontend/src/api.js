@@ -73,6 +73,7 @@ export const api = {
   drama: (id) => request(`/api/dramas/${id}`),
   search: (kw) => request('/api/search?keyword=' + encodeURIComponent(kw)),
   feed: (page = 1) => request(`/api/feed?page=${page}`),
+  tkLink: (dramaId) => request('/api/user/tkpostai/link', { method: 'POST', body: { drama_id: dramaId } }),
   play: (id) => request(`/api/episodes/${id}/play`),
   store: () => request('/api/store'),
 

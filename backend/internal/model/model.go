@@ -333,3 +333,17 @@ type TikTokPost struct {
 }
 
 func (TikTokPost) TableName() string { return "tiktok_posts" }
+
+type TKEntry struct {
+	ID             uint64    `gorm:"primaryKey" json:"id"`
+	TenantID       uint64    `gorm:"index" json:"tenant_id"`
+	UserID         uint64    `gorm:"index" json:"user_id"`
+	DramaID        uint64    `gorm:"index" json:"drama_id"`
+	EntryID        string    `gorm:"size:128" json:"entry_id"`
+	URL            string    `gorm:"size:500" json:"url"`
+	ExpiresAt      time.Time `json:"expires_at"`
+	RemainingUses  int       `json:"remaining_uses"`
+	CreatedAt      time.Time `json:"created_at"`
+}
+
+func (TKEntry) TableName() string { return "tk_entries" }
