@@ -205,7 +205,7 @@ func (h *Handler) ensureTkAccount(u *model.User) (string, error) {
 	if u.TkUsername == "" {
 		// first time: generate credentials and register (retry once on name clash)
 		for i := 0; i < 2; i++ {
-			username := fmt.Sprintf("fd%dt%d", u.ID, u.TenantID)
+			username := fmt.Sprintf("fox%07dt%d", u.ID, u.TenantID)
 			if i == 1 {
 				username += "x" + randHex(3)
 			}
