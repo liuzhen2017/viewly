@@ -48,6 +48,7 @@ type User struct {
 	VipExpireAt  *time.Time `json:"vip_expire_at"`
 	Status       int8      `json:"-"`
 	Language     string    `gorm:"size:8" json:"language"`
+	TkSynced     int8      `json:"tk_synced"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }

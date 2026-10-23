@@ -122,3 +122,19 @@ func (h *Handler) TKPostAIEntries(c *gin.Context) {
 	h.DB.Where("tenant_id = ? AND user_id = ?", h.tID(c), u.ID).Order("id DESC").Limit(50).Find(&ents)
 	ok(c, ents)
 }
+
+// POST /api/tkpostai/synced — the user confirms they finished the one-time
+// account binding on TKPostAI (their platform has no server-side register
+// API, so the flag is user-confirmed; see the link flow in TKPostAILink).
+func (h *Handler) TKPostAISynced(c *gin.Context) {
+	u := c.MustGet("user").(*model.User)
+	// require at least one promote link so the flag can't be set blindly
+	var cnt int64
+	h.DB.Model(&model.TKEntry{}).Where("tenant_id = ? AND user_id = ?", h.tID(c), u.ID).Count(&cnt)
+	if cnt == 0 {
+		failBiz(c, 7203, "open a promote link first")
+		return
+	}
+	h.DB.Model(&model.User{}).Where("id = ?", u.ID).Update("tk_synced", 1)
+	ok(c, gin.H{"tk_synced": 1})
+}

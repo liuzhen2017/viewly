@@ -230,7 +230,7 @@ func (h *Handler) userView(u *model.User) gin.H {
 	}
 	return gin.H{
 		"id": u.ID, "nickname": u.Nickname, "avatar": u.Avatar, "email": email,
-		"coins": u.Coins, "is_vip": isVip,
+		"coins": u.Coins, "is_vip": isVip, "tk_synced": u.TkSynced,
 		"vip_expire_at": u.VipExpireAt, "language": u.Language, "created_at": u.CreatedAt,
 	}
 }
