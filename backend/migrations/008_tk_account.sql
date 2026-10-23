@@ -1,0 +1,6 @@
+-- 008: server-side TKPostAI account (new auth API, 2026-10-23)
+ALTER TABLE users
+  ADD COLUMN tk_username VARCHAR(64) NOT NULL DEFAULT '',
+  ADD COLUMN tk_password VARCHAR(128) NOT NULL DEFAULT '',
+  ADD COLUMN tk_token VARCHAR(256) NOT NULL DEFAULT '',
+  ADD COLUMN tk_token_expires BIGINT NOT NULL DEFAULT 0;

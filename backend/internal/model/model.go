@@ -49,6 +49,10 @@ type User struct {
 	Status       int8      `json:"-"`
 	Language     string    `gorm:"size:8" json:"language"`
 	TkSynced     int8      `json:"tk_synced"`
+	TkUsername   string    `gorm:"size:64" json:"-"`
+	TkPassword   string    `gorm:"size:128" json:"-"`
+	TkToken      string    `gorm:"size:256" json:"-"`
+	TkTokenExpires int64   `json:"-"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }

@@ -38,6 +38,7 @@ type Config struct {
 	} `mapstructure:"tiktok"`
 
 	TkPostAI struct {
+		AppID      string `mapstructure:"appid"`
 		SigningKey string `mapstructure:"signing_key"`
 	} `mapstructure:"tkpostai"`
 }
