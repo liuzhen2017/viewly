@@ -41,6 +41,12 @@ type Config struct {
 		AppID      string `mapstructure:"appid"`
 		SigningKey string `mapstructure:"signing_key"`
 	} `mapstructure:"tkpostai"`
+
+	DramaCut struct {
+		BaseURL  string `mapstructure:"base_url"`
+		Bearer   string `mapstructure:"bearer"`
+		TenantID string `mapstructure:"tenant_id"`
+	} `mapstructure:"dramacut"`
 }
 
 func Load(path string) (*Config, error) {
