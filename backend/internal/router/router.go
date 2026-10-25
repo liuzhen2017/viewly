@@ -163,6 +163,12 @@ func Setup(db *gorm.DB, cfg *config.Config, h *handler.Handler) *gin.Engine {
 		adminAuth.GET("/orders", h.AdminOrderList)
 		adminAuth.POST("/orders/:orderNo/mark-paid", h.AdminMarkPaid)
 
+		// server-to-server integration (own bearer auth inside handlers)
+		integ := api.Group("/integration")
+		integ.Use(func(c *gin.Context) { h.IntegrationAuth(c) })
+		integ.GET("/dramas", h.IntegrationDramas)
+		integ.GET("/dramas/:dramaId/episodes", h.IntegrationEpisodes)
+
 		// TikTok account hosting + one-click publishing
 		api.GET("/tiktok/callback", h.TikTokCallback)
 		adminAuth.GET("/tiktok/connect-url", h.TikTokConnectURL)

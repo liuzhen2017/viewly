@@ -118,6 +118,9 @@ type Episode struct {
 	VideoURL    string    `gorm:"size:1000" json:"video_url"`
 	DurationSec int       `json:"duration_sec"`
 	PriceCoins  int       `json:"price_coins"`
+	FileSize    int64     `json:"file_size"`
+	FileEtag    string    `gorm:"size:128" json:"file_etag"`
+	FileMetaAt  *time.Time `json:"file_meta_at"`
 	Status      int8      `json:"status"`
 	CreatedAt   time.Time `json:"created_at"`
 }

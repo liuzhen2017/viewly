@@ -47,6 +47,11 @@ type Config struct {
 		Bearer   string `mapstructure:"bearer"`
 		TenantID string `mapstructure:"tenant_id"`
 	} `mapstructure:"dramacut"`
+
+	Integration struct {
+		Token       string `mapstructure:"token"`
+		DownloadBase string `mapstructure:"download_base"`
+	} `mapstructure:"integration"`
 }
 
 func Load(path string) (*Config, error) {
