@@ -355,3 +355,18 @@ type TKEntry struct {
 }
 
 func (TKEntry) TableName() string { return "tk_entries" }
+
+type DCImport struct {
+	ID         uint64    `gorm:"primaryKey" json:"id"`
+	TenantID   uint64    `gorm:"index" json:"tenant_id"`
+	UserID     uint64    `gorm:"index" json:"user_id"`
+	DramaID    uint64    `json:"drama_id"`
+	ImportID   string    `gorm:"size:128" json:"import_id"`
+	RequestID  string    `gorm:"size:128" json:"request_id"`
+	Status     string    `gorm:"size:32" json:"status"`
+	RawResponse string   `json:"raw_response"`
+	CreatedAt  time.Time `json:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at"`
+}
+
+func (DCImport) TableName() string { return "dc_imports" }

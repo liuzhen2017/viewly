@@ -89,7 +89,8 @@ func Setup(db *gorm.DB, cfg *config.Config, h *handler.Handler) *gin.Engine {
 		user.POST("/tkpostai/link", h.TKPostAILink)
 		user.GET("/tkpostai/entries", h.TKPostAIEntries)
 		user.POST("/tkpostai/synced", h.TKPostAISynced)
-		user.POST("/dramacut/entry", h.DramaCutEntry)
+		user.POST("/dramacut/import", h.DramaCutImport)
+		user.GET("/dramacut/import/status", h.DramaCutImportStatus)
 
 		// payment/ad provider webhooks are public; auth is signature-based
 		api.POST("/webhooks/stripe", h.StripeWebhook)

@@ -43,9 +43,10 @@ type Config struct {
 	} `mapstructure:"tkpostai"`
 
 	DramaCut struct {
-		BaseURL  string `mapstructure:"base_url"`
-		Bearer   string `mapstructure:"bearer"`
-		TenantID string `mapstructure:"tenant_id"`
+		BaseURL   string `mapstructure:"base_url"`
+		Bearer    string `mapstructure:"bearer"`
+		SourceKey string `mapstructure:"source_key"`
+		TenantID  string `mapstructure:"tenant_id"`
 	} `mapstructure:"dramacut"`
 
 	Integration struct {
