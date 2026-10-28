@@ -180,7 +180,7 @@ func (h *Handler) headFill(eps []model.Episode, force bool) {
 	if len(need) == 0 {
 		return
 	}
-	sem := make(chan struct{}, 6)
+	sem := make(chan struct{}, 12)
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	updates := map[uint64][2]interface{}{}

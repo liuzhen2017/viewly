@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -97,10 +98,16 @@ func (h *Handler) DramaCutImport(c *gin.Context) {
 	}
 	epList := make([]epOut, 0, len(eps))
 	for _, e := range eps {
+		dl := e.VideoURL
+		if base := strings.TrimRight(h.Cfg.Integration.DownloadBase, "/"); base != "" {
+			if i := strings.Index(e.VideoURL, "cdn.likeviewly.com/"); i >= 0 {
+				dl = base + "/" + e.VideoURL[i+len("cdn.likeviewly.com/"):]
+			}
+		}
 		epList = append(epList, epOut{
 			EpisodeID: fmt.Sprintf("foxdrama-ep-%d", e.ID), EpisodeNumber: e.EpIndex,
 			Version: e.FileEtag, SizeBytes: e.FileSize,
-			DownloadURL: e.VideoURL, // cdn.likeviewly.com — their source whitelist
+			DownloadURL: dl, // download_base (OSS mirror) — cdn.likeviewly.com fallback
 		})
 	}
 	reqID := fmt.Sprintf("fdi%d%d", time.Now().UnixNano(), u.ID)
