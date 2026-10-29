@@ -54,8 +54,14 @@ func (h *Handler) TikTokCallback(c *gin.Context) {
 	code := c.Query("code")
 	state := c.Query("state")
 	back := "https://admin.likeviewly.com/#/tiktok"
-	if code == "" || !strings.HasPrefix(state, "t") {
-		c.Redirect(http.StatusFound, back+"?err=missing_code")
+	if code == "" {
+		// bare GET (TikTok URL-property validation hits this): return a
+		// 200 landing page instead of a redirect — their checker wants 200.
+		c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(`<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>FoxDrama × TikTok</title></head><body style="font-family:system-ui;max-width:640px;margin:60px auto;padding:0 20px;color:#222"><h3>FoxDrama — TikTok callback endpoint</h3><p>This URL receives TikTok OAuth redirects after a user connects their account in FoxDrama. Start from the FoxDrama workspace (www.likeviewly.com).</p></body></html>`))
+		return
+	}
+	if !strings.HasPrefix(state, "t") {
+		c.Redirect(http.StatusFound, back+"?err=missing_state")
 		return
 	}
 	var tid uint64
