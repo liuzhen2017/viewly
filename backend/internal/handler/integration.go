@@ -39,8 +39,15 @@ func (h *Handler) IntegrationAuth(c *gin.Context) {
 	}
 	uid, tid := parseExtUser(c.Query("userid"))
 	if uid == 0 {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"code": 400, "msg": "userid must be a valid externalUserId (foxNNNNNNtN)"})
-		return
+		// TKPost-native accounts (e.g. yixi8888) have no FoxDrama user row.
+		// Accept them as tenant-1 (main) callers; the Bearer token is the
+		// real auth boundary, the userid is only for tenant binding.
+		raw := strings.TrimSpace(c.Query("userid"))
+		if raw == "" || len(raw) > 64 {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"code": 400, "msg": "userid required"})
+			return
+		}
+		tid = 1
 	}
 	c.Set("int_uid", uid)
 	c.Set("int_tid", tid)
@@ -63,10 +70,12 @@ func (h *Handler) intUser(c *gin.Context) (uint64, uint64) {
 // GET /api/integration/dramas?userid=&page=&size=&q= — authorized drama list
 func (h *Handler) IntegrationDramas(c *gin.Context) {
 	uid, tid := h.intUser(c)
-	var u model.User
-	if err := h.DB.Where("id = ? AND tenant_id = ?", uid, tid).First(&u).Error; err != nil {
-		fail(c, http.StatusNotFound, "user not found")
-		return
+	if uid > 0 {
+		var u model.User
+		if err := h.DB.Where("id = ? AND tenant_id = ?", uid, tid).First(&u).Error; err != nil {
+			fail(c, http.StatusNotFound, "user not found")
+			return
+		}
 	}
 	page := toInt(c.Query("page"), 1)
 	size := toInt(c.Query("size"), 20)
@@ -108,10 +117,12 @@ func (h *Handler) IntegrationDramas(c *gin.Context) {
 // GET /api/integration/dramas/:dramaId/episodes?userid= — full episode manifest
 func (h *Handler) IntegrationEpisodes(c *gin.Context) {
 	uid, tid := h.intUser(c)
-	var u model.User
-	if err := h.DB.Where("id = ? AND tenant_id = ?", uid, tid).First(&u).Error; err != nil {
-		fail(c, http.StatusNotFound, "user not found")
-		return
+	if uid > 0 {
+		var u model.User
+		if err := h.DB.Where("id = ? AND tenant_id = ?", uid, tid).First(&u).Error; err != nil {
+			fail(c, http.StatusNotFound, "user not found")
+			return
+		}
 	}
 	did := parseDramaID(c.Param("dramaId"))
 	if did == 0 {
@@ -145,7 +156,7 @@ func (h *Handler) IntegrationEpisodes(c *gin.Context) {
 		list = append(list, outEp{
 			EpisodeID: fmt.Sprintf("foxdrama-ep-%d", e.ID), EpisodeNumber: e.EpIndex,
 			Title: e.Title, Filename: fmt.Sprintf("%03d.mp4", e.EpIndex),
-			DownloadURL: h.Cfg.Integration.DownloadBase + strings.TrimPrefix(e.VideoURL, "https://cdn.likeviewly.com"),
+			DownloadURL: h.dlURL(e.VideoURL),
 			SizeBytes:   e.FileSize, Version: e.FileEtag,
 			DownloadHost: h.Cfg.Integration.DownloadBase,
 		})
@@ -169,7 +180,22 @@ func parseDramaID(s string) uint64 {
 
 var headClient = &http.Client{Timeout: 10 * time.Second}
 
-// headFill lazily caches Content-Length + ETag from the CDN (6 concurrent)
+// dlURL maps a cdn.likeviewly.com video URL onto the configured download
+// base (OSS mirror) — the manifest and the ETag cache must describe the
+// SAME copy of the file, or version checks drift (CDN/S3 etags differ from
+// OSS etags even for identical bytes).
+func (h *Handler) dlURL(videoURL string) string {
+	base := strings.TrimRight(h.Cfg.Integration.DownloadBase, "/")
+	if base == "" {
+		return videoURL
+	}
+	if i := strings.Index(videoURL, "cdn.likeviewly.com"); i >= 0 {
+		return base + videoURL[i+len("cdn.likeviewly.com"):]
+	}
+	return videoURL
+}
+
+// headFill lazily caches Content-Length + ETag from the download base (12 concurrent)
 func (h *Handler) headFill(eps []model.Episode, force bool) {
 	var need []*model.Episode
 	for i := range eps {
@@ -190,7 +216,7 @@ func (h *Handler) headFill(eps []model.Episode, force bool) {
 			defer wg.Done()
 			sem <- struct{}{}
 			defer func() { <-sem }()
-			req, _ := http.NewRequest("HEAD", e.VideoURL, nil)
+			req, _ := http.NewRequest("HEAD", h.dlURL(e.VideoURL), nil)
 			resp, err := headClient.Do(req)
 			if err != nil || resp.StatusCode != http.StatusOK {
 				return
