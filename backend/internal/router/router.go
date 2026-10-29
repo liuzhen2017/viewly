@@ -173,6 +173,9 @@ func Setup(db *gorm.DB, cfg *config.Config, h *handler.Handler) *gin.Engine {
 		// TikTok account hosting + one-click publishing
 		api.GET("/tiktok/callback", h.TikTokCallback)
 		api.HEAD("/tiktok/callback", h.TikTokCallback) // URL-property checkers send HEAD
+		api.GET("/tiktok/webhook", h.TikTokWebhook)
+		api.HEAD("/tiktok/webhook", h.TikTokWebhook)
+		api.POST("/tiktok/webhook", h.TikTokWebhook)
 		adminAuth.GET("/tiktok/connect-url", h.TikTokConnectURL)
 		adminAuth.GET("/tiktok/accounts", h.TikTokAccounts)
 		adminAuth.DELETE("/tiktok/accounts/:id", h.TikTokAccountDelete)

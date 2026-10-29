@@ -559,3 +559,24 @@ func truncStr(s string, n int) string {
 	}
 	return s
 }
+
+// ---------- Webhooks (Content Posting API events) ----------
+
+// TikTok verifies a webhook URL by POSTing {"url_verification":{"challenge":".."}}
+// and expects the challenge echoed back; afterwards it pushes publish-status
+// events to the same URL. Registered for GET/POST/HEAD (checkers vary).
+// POST /api/tiktok/webhook
+func (h *Handler) TikTokWebhook(c *gin.Context) {
+	var body struct {
+		URLVerification struct {
+			Challenge string `json:"challenge"`
+		} `json:"url_verification"`
+		Event string `json:"event"`
+	}
+	if err := c.ShouldBindJSON(&body); err == nil && body.URLVerification.Challenge != "" {
+		c.JSON(http.StatusOK, gin.H{"challenge": body.URLVerification.Challenge})
+		return
+	}
+	log.Printf("[tiktok-webhook] %s %s", c.Request.Method, c.Request.URL.RawQuery)
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
