@@ -92,6 +92,35 @@ func Setup(db *gorm.DB, cfg *config.Config, h *handler.Handler) *gin.Engine {
 		user.POST("/dramacut/import", h.DramaCutImport)
 		user.GET("/dramacut/import/status", h.DramaCutImportStatus)
 
+		// TK clone MVP — creator workspace (studio.likeviewly.com).
+		// Reuses the public drama/episode listing endpoints above.
+		user.GET("/tk/accounts", h.TKUserAccounts)
+		user.DELETE("/tk/accounts/:id", h.TKUserAccountDelete)
+		user.POST("/tk/connect-url", h.TKUserConnectURL)
+		user.POST("/tk/auth-links", h.TKUserAuthLinkCreate)
+		user.GET("/tk/auth-links", h.TKUserAuthLinks)
+		user.DELETE("/tk/auth-links/:id", h.TKUserAuthLinkDelete)
+		user.GET("/tk/clips", h.TKUserClips)
+		user.POST("/tk/clips", h.TKUserClipSave)
+		user.DELETE("/tk/clips/:id", h.TKUserClipDelete)
+		user.POST("/tk/slice-jobs", h.TKUserSliceJobCreate)
+		user.GET("/tk/slice-jobs", h.TKUserSliceJobs)
+		user.POST("/tk/tasks/preview", h.TKUserTaskPreview)
+		user.POST("/tk/tasks", h.TKUserTaskCreate)
+		user.GET("/tk/tasks", h.TKUserTasks)
+		user.GET("/tk/tasks/:id", h.TKUserTaskDetail)
+		user.POST("/tk/tasks/:id/cancel", h.TKUserTaskCancel)
+		user.POST("/tk/posts/:id/check", h.TKUserPostCheck)
+		user.GET("/tk/posts", h.TKUserPosts)
+
+		// clip uploads from the workspace: same handlers as admin, scoped by
+		// the (user-auth) request's tenant; ownership is set on clip save.
+		user.POST("/uploads", h.UploadRelay)
+		user.POST("/uploads/mp/init", h.MpInit)
+		user.POST("/uploads/mp/chunk", h.MpChunk)
+		user.POST("/uploads/mp/complete", h.MpComplete)
+		user.POST("/uploads/mp/abort", h.MpAbort)
+
 		// payment/ad provider webhooks are public; auth is signature-based
 		api.POST("/webhooks/stripe", h.StripeWebhook)
 		api.GET("/webhooks/admob/ssv", h.AdMobSSV)

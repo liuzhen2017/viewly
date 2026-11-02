@@ -42,6 +42,29 @@
 排期:MVP = 账号授权链接 + 批量发布任务(分配算法)+ 任务状态机 + ffmpeg 切片机;
 不做 AI 剪辑(外接)、AI 润色、Facebook(后补)。
 
+### 实施进度(2026-11-01,代码已完成待验证)
+
+- `backend/migrations/011_tk_clone.sql`:user 归属列(accounts/clips/posts)+ tk_auth_states / tk_tasks / tk_slice_jobs 三新表(**未应用到生产库**)
+- 分配引擎 `tk_allocate.go` + 单测(ONE_TO_ONE / ALL_VIDEOS / RANDOM_EVEN + 循环补足)
+- OAuth:state 落库(直连 30min 单次 / 授权链接 7 天多人),链接授权的号挂**生成者**名下;旧 admin `t<tid>.xxx` 路径兼容不受影响
+- 用户侧 API `tk_clone.go`(账号/链接/素材/切片/任务/核对);上传端点同款挂到用户组
+- worker:启动时自动恢复队列、到期 scheduled→queued、SELF_ONLY 完成态记 delivered(待核对/已核对)、**tiktok.mock 模式**(OAuth 未通前全链路可演示)
+- 切片机 `slicer.go`:CDN 下载→ffmpeg 流拷贝切片→S3→素材库,错误入库不静默;config 加 ffmpeg.path/tmp_dir
+- 前端 `studio/`(新应用,Vue3+EP):登录注册/剧目库(切片入口)/素材库/账号管理(授权链接)/三步建任务向导/任务中心(状态机+核对);部署位 studio.likeviewly.com
+- 部署:server-install.sh 加 studio server 块 + ffmpeg 安装;三个前端 RESERVED 子域加 studio
+- **本地验证已过**(2026-11-01):`go build ./...` ✅ / `go vet ./internal/...` ✅ / 分配引擎 9 单测 ✅ / `studio npm run build` ✅(本机无 MySQL/Docker,带库的 e2e 挪到服务器做;本机 Go 1.17 太老,便携版 1.24.13 在 `G:\temp\temp\go-toolchain\`,用前 export GOROOT/PATH)
+- **待办**:服务器部署(011 迁移 + arm64 构建 + DNS/nginx/certbot + ffmpeg)→ mock 模式 e2e → OAuth 恢复后关 mock 真发验证
+
+## 三.五、⏸️ 暂停点(2026-11-01,授权卡在 redirect_uri)
+
+- 扫码+登录成功(foxdrama5 网页登录态建立),但授权页报 "We couldn't log in with TikTok … redirect_uri"
+- Login Kit(sandbox dev-test)里 URI 与请求逐字一致(`https://api.likeviewly.com/api/tiktok/callback`)仍报 → 首次实测,此前从未跑通过授权这步
+- **高嫌疑结论**:域名验证是在新账号(294442437@qq.com)做的;沙箱挂旧账号(d443y2515@outlook.com),TikTok 运行时按 App 所属账号校验 redirect 域名。DNS 现状:根域 TXT `tiktok-developers-site-verification=LTOG6aOFvZh3e7IpSG7v1qZ3lB53JH1x`(新账号码,注意与本文档上文 b03cf8… 不同,中途换过)
+- **Plan A(优先)**:旧账号后台(sandbox 或父 App 的 Basic info)找 Verify domain → 拿新 TXT 码 → Cloudflare 加第二条 TXT(Type TXT / Name @ / 内容原样;与现有条并存不冲突)→ portal 点 Verify → 重测授权链接(client_key sbawe091fimle74vvb,state=t1.xxx 格式任意,tenant 解析只看 t 后数字遇非数字截断)
+- **Plan B**:找不到验证入口就走新账号(域名已验证)建沙箱 → config.yaml 换新 sb 凭证 → 重生成链接
+- 重测注意:若原浏览器 tab 没关,foxdrama5 登录态还在,重开链接直达授权确认页免扫码;授权成功=302 到 admin.likeviewly.com/#/tiktok?connected=1
+- 已重存过一次 Login Kit URI(手敲防空字符),保存后仍报,可排除"没存上/隐形字符"
+
 ## 四、易忘坑(都已踩过)
 
 - TikTok 后台对 pending App 锁配置 → 一切走沙箱

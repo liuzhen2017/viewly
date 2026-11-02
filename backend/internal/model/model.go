@@ -299,6 +299,7 @@ func (AppConfig) TableName() string { return "app_configs" }
 type TikTokAccount struct {
 	ID               uint64    `gorm:"primaryKey" json:"id"`
 	TenantID         uint64    `gorm:"index" json:"tenant_id"`
+	UserID           *uint64   `gorm:"index" json:"user_id"` // NULL = legacy admin-hosted account
 	OpenID           string    `gorm:"size:64" json:"open_id"`
 	DisplayName      string    `gorm:"size:128" json:"display_name"`
 	Avatar           string    `gorm:"size:500" json:"avatar"`
@@ -316,6 +317,7 @@ func (TikTokAccount) TableName() string { return "tiktok_accounts" }
 type TikTokClip struct {
 	ID          uint64     `gorm:"primaryKey" json:"id"`
 	TenantID    uint64     `gorm:"index" json:"tenant_id"`
+	UserID      *uint64    `gorm:"index" json:"user_id"` // NULL = legacy admin clip
 	Title       string     `gorm:"size:255" json:"title"`
 	VideoURL    string     `gorm:"size:500" json:"video_url"`
 	SizeBytes   int64      `json:"size_bytes"`
@@ -327,17 +329,24 @@ type TikTokClip struct {
 func (TikTokClip) TableName() string { return "tiktok_clips" }
 
 type TikTokPost struct {
-	ID           uint64    `gorm:"primaryKey" json:"id"`
-	TenantID     uint64    `gorm:"index" json:"tenant_id"`
-	AccountID    uint64    `gorm:"index" json:"account_id"`
-	ClipID       uint64    `json:"clip_id"`
-	Title        string    `gorm:"size:2200" json:"title"`
-	PrivacyLevel string    `gorm:"size:32" json:"privacy_level"`
-	Status       string    `gorm:"size:20;default:queued" json:"status"` // queued|uploading|processing|published|failed
-	PublishID    string    `gorm:"size:128" json:"publish_id"`
-	Error        string    `gorm:"size:500" json:"error"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
+	ID             uint64     `gorm:"primaryKey" json:"id"`
+	TenantID       uint64     `gorm:"index" json:"tenant_id"`
+	TaskID         *uint64    `gorm:"index" json:"task_id"`
+	UserID         *uint64    `gorm:"index" json:"user_id"` // NULL = admin-originated post
+	AccountID      uint64     `gorm:"index" json:"account_id"`
+	ClipID         uint64     `json:"clip_id"`
+	Title          string     `gorm:"size:2200" json:"title"`
+	PrivacyLevel   string     `gorm:"size:32" json:"privacy_level"`
+	Status         string     `gorm:"size:20;default:queued" json:"status"` // scheduled|queued|uploading|processing|delivered|published|failed|canceled
+	PublishID      string    `gorm:"size:128" json:"publish_id"`
+	Error          string    `gorm:"size:500" json:"error"`
+	ScheduledAt    *time.Time `json:"scheduled_at"`
+	CheckedAt      *time.Time `json:"checked_at"` // draft review flag (delivered → checked)
+	DisableComment bool       `json:"disable_comment"`
+	DisableDuet    bool       `json:"disable_duet"`
+	DisableStitch  bool       `json:"disable_stitch"`
+	CreatedAt      time.Time  `json:"created_at"`
+	UpdatedAt      time.Time  `json:"updated_at"`
 }
 
 func (TikTokPost) TableName() string { return "tiktok_posts" }
@@ -355,6 +364,64 @@ type TKEntry struct {
 }
 
 func (TKEntry) TableName() string { return "tk_entries" }
+
+// ---------- TK clone MVP: auth states, tasks, slice jobs ----------
+
+// TKAuthState backs OAuth states for the creator workspace: kind=user is a
+// single-use direct connect (30 min); kind=link is a shareable 7-day
+// authorization link — accounts authorized through it land in the OWNER's
+// matrix (the fission mechanic copied from the reference product).
+type TKAuthState struct {
+	ID           uint64     `gorm:"primaryKey" json:"id"`
+	TenantID     uint64     `gorm:"index" json:"tenant_id"`
+	State        string     `gorm:"size:64;uniqueIndex" json:"-"`
+	Kind         string     `gorm:"size:8" json:"kind"` // user | link
+	OwnerUserID  uint64     `gorm:"index" json:"owner_user_id"`
+	Title        string     `gorm:"size:255" json:"title"`
+	ExpiresAt    time.Time  `json:"expires_at"`
+	UsedAt       *time.Time `json:"used_at"`
+	UseCount     int        `json:"use_count"`
+	UsedByOpenID string     `gorm:"size:64" json:"used_by_open_id"`
+	UsedByName   string     `gorm:"size:128" json:"used_by_name"`
+	CreatedAt    time.Time  `json:"created_at"`
+}
+
+func (TKAuthState) TableName() string { return "tk_auth_states" }
+
+// TKTask is the batch publish header; the per-account/clip jobs are
+// tiktok_posts rows pointing back via task_id.
+type TKTask struct {
+	ID           uint64     `gorm:"primaryKey" json:"id"`
+	TenantID     uint64     `gorm:"index" json:"tenant_id"`
+	UserID       uint64     `gorm:"index" json:"user_id"`
+	Name         string     `gorm:"size:255" json:"name"`
+	Rule         string     `gorm:"size:20" json:"rule"` // ONE_TO_ONE | ALL_VIDEOS | RANDOM_EVEN
+	Total        int        `json:"total"`
+	Status       string     `gorm:"size:20;default:running" json:"status"` // scheduled | running | done | canceled
+	ScheduledAt  *time.Time `json:"scheduled_at"`
+	PrivacyLevel string     `gorm:"size:32" json:"privacy_level"`
+	Title        string     `gorm:"size:2200" json:"title"`
+	CreatedAt    time.Time  `json:"created_at"`
+}
+
+func (TKTask) TableName() string { return "tk_tasks" }
+
+// TKSliceJob: one episode cut into N short clips (stream-copy, keyframe aligned).
+type TKSliceJob struct {
+	ID         uint64    `gorm:"primaryKey" json:"id"`
+	TenantID   uint64    `gorm:"index" json:"tenant_id"`
+	UserID     uint64    `gorm:"index" json:"user_id"`
+	EpisodeID  uint64    `gorm:"index" json:"episode_id"`
+	SegSec     int       `json:"seg_sec"`
+	MaxCount   int       `json:"max_count"`
+	Status     string    `gorm:"size:20;default:queued" json:"status"` // queued | running | done | failed
+	Error      string    `gorm:"size:500" json:"error"`
+	ClipCount  int       `json:"clip_count"`
+	CreatedAt  time.Time `json:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at"`
+}
+
+func (TKSliceJob) TableName() string { return "tk_slice_jobs" }
 
 type DCImport struct {
 	ID         uint64    `gorm:"primaryKey" json:"id"`

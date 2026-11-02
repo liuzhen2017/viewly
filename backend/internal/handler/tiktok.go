@@ -32,13 +32,8 @@ const (
 
 // ---------- OAuth ----------
 
-// GET /api/admin/tiktok/connect-url
-func (h *Handler) TikTokConnectURL(c *gin.Context) {
-	if h.Cfg.TikTok.ClientKey == "" {
-		failBiz(c, 7001, "tiktok not configured: set client_key/client_secret in config.yaml")
-		return
-	}
-	state := fmt.Sprintf("t%d.%s", h.tID(c), randHex(8))
+// ttAuthorizeLink builds the TikTok authorize URL for a state token.
+func (h *Handler) ttAuthorizeLink(state string) string {
 	q := url.Values{
 		"client_key":    {h.Cfg.TikTok.ClientKey},
 		"scope":         {"user.info.basic,video.publish,video.upload"},
@@ -46,30 +41,60 @@ func (h *Handler) TikTokConnectURL(c *gin.Context) {
 		"redirect_uri":  {h.Cfg.TikTok.RedirectURL},
 		"state":         {state},
 	}
-	ok(c, gin.H{"url": ttAuthorizeURL + "?" + q.Encode()})
+	return ttAuthorizeURL + "?" + q.Encode()
+}
+
+// GET /api/admin/tiktok/connect-url — legacy admin flow; state encodes the
+// tenant directly (t<tenantID>.<rand>) so the callback needs no DB row.
+func (h *Handler) TikTokConnectURL(c *gin.Context) {
+	if h.Cfg.TikTok.ClientKey == "" {
+		failBiz(c, 7001, "tiktok not configured: set client_key/client_secret in config.yaml")
+		return
+	}
+	state := fmt.Sprintf("t%d.%s", h.tID(c), randHex(8))
+	ok(c, gin.H{"url": h.ttAuthorizeLink(state)})
 }
 
 // GET /api/tiktok/callback (public — TikTok redirects here)
 func (h *Handler) TikTokCallback(c *gin.Context) {
 	code := c.Query("code")
 	state := c.Query("state")
-	back := "https://admin.likeviewly.com/#/tiktok"
+	adminBack := "https://admin.likeviewly.com/#/tiktok"
+	studioBack := strings.TrimRight(h.Cfg.TikTok.StudioBase, "/") + "/#/accounts"
 	if code == "" {
 		// bare GET (TikTok URL-property validation hits this): return a
 		// 200 landing page instead of a redirect — their checker wants 200.
 		c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(`<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>FoxDrama × TikTok</title></head><body style="font-family:system-ui;max-width:640px;margin:60px auto;padding:0 20px;color:#222"><h3>FoxDrama — TikTok callback endpoint</h3><p>This URL receives TikTok OAuth redirects after a user connects their account in FoxDrama. Start from the FoxDrama workspace (www.likeviewly.com).</p></body></html>`))
 		return
 	}
-	if !strings.HasPrefix(state, "t") {
-		c.Redirect(http.StatusFound, back+"?err=missing_state")
-		return
+
+	// resolve state: DB-backed states (creator workspace / auth links) win;
+	// the legacy free-form t<tenantID>.<rand> keeps the admin flow working.
+	var st model.TKAuthState
+	h.DB.Where("state = ?", state).First(&st)
+	var (
+		tid     uint64
+		ownerID *uint64
+		back    string
+	)
+	if st.ID != 0 {
+		if st.ExpiresAt.Before(time.Now().UTC()) || (st.Kind == "user" && st.UsedAt != nil) {
+			c.Redirect(http.StatusFound, studioBack+"?err=state_expired")
+			return
+		}
+		tid = st.TenantID
+		uid := st.OwnerUserID
+		ownerID = &uid
+		back = studioBack
+	} else if strings.HasPrefix(state, "t") {
+		fmt.Sscanf(state[1:], "%d", &tid)
+		back = adminBack
 	}
-	var tid uint64
-	fmt.Sscanf(state[1:], "%d", &tid)
 	if tid == 0 {
-		c.Redirect(http.StatusFound, back+"?err=bad_state")
+		c.Redirect(http.StatusFound, studioBack+"?err=bad_state")
 		return
 	}
+
 	tok, err := h.ttExchange(code)
 	if err != nil {
 		c.Redirect(http.StatusFound, back+"?err="+url.QueryEscape(err.Error()))
@@ -85,7 +110,7 @@ func (h *Handler) TikTokCallback(c *gin.Context) {
 	}
 	now := time.Now().UTC()
 	acc := model.TikTokAccount{
-		TenantID: tid, OpenID: info.OpenID, DisplayName: info.DisplayName, Avatar: info.AvatarURL,
+		TenantID: tid, UserID: ownerID, OpenID: info.OpenID, DisplayName: info.DisplayName, Avatar: info.AvatarURL,
 		AccessToken: tok.AccessToken, RefreshToken: tok.RefreshToken,
 		AccessExpiresAt: now.Add(time.Duration(tok.ExpiresIn) * time.Second),
 		RefreshExpiresAt: now.Add(time.Duration(tok.RefreshExpiresIn) * time.Second),
@@ -94,11 +119,23 @@ func (h *Handler) TikTokCallback(c *gin.Context) {
 	if err := h.DB.Clauses(clause.OnConflict{
 		Columns: []clause.Column{{Name: "tenant_id"}, {Name: "open_id"}},
 		DoUpdates: clause.AssignmentColumns([]string{
-			"display_name", "avatar", "access_token", "refresh_token",
+			"user_id", "display_name", "avatar", "access_token", "refresh_token",
 			"access_expires_at", "refresh_expires_at", "scope", "status"}),
 	}).Create(&acc).Error; err != nil {
 		c.Redirect(http.StatusFound, back+"?err=save_failed")
 		return
+	}
+
+	// mark the state used: direct connects are single-use (UsedAt blocks
+	// replay at the top); links just tally and stay shareable until expiry.
+	if st.ID != 0 {
+		updates := map[string]interface{}{
+			"use_count": st.UseCount + 1, "used_by_open_id": info.OpenID, "used_by_name": info.DisplayName,
+		}
+		if st.UsedAt == nil {
+			updates["used_at"] = now
+		}
+		h.DB.Model(&st).Updates(updates)
 	}
 	c.Redirect(http.StatusFound, back+"?connected=1")
 }
@@ -391,7 +428,13 @@ func (h *Handler) ttRefreshProcessing(c *gin.Context) {
 		resp.Body.Close()
 		switch r.Data.Status {
 		case "PUBLISH_COMPLETE":
-			h.DB.Model(&p).Updates(map[string]interface{}{"status": "published", "error": ""})
+			// drafts (SELF_ONLY) land in the creator's TikTok inbox for manual
+			// review — that is "delivered", not "published"
+			final := "published"
+			if p.PrivacyLevel == "SELF_ONLY" {
+				final = "delivered"
+			}
+			h.DB.Model(&p).Updates(map[string]interface{}{"status": final, "error": ""})
 		case "FAILED":
 			h.DB.Model(&p).Updates(map[string]interface{}{"status": "failed", "error": truncStr(r.Data.FailReason.Code+" "+r.Data.FailReason.Msg, 490)})
 		}
@@ -420,6 +463,10 @@ func runTTPublisher(h *Handler) {
 	defer func() { ttPubMu.Lock(); ttPubRunning = false; ttPubMu.Unlock() }()
 
 	for {
+		// promote due scheduled posts first (timed submission)
+		h.DB.Model(&model.TikTokPost{}).
+			Where("status = ? AND scheduled_at IS NOT NULL AND scheduled_at <= ?", "scheduled", time.Now().UTC()).
+			Update("status", "queued")
 		var post model.TikTokPost
 		if err := h.DB.Where("status = ?", "queued").Order("id ASC").First(&post).Error; err != nil {
 			return // queue drained
@@ -428,11 +475,35 @@ func runTTPublisher(h *Handler) {
 	}
 }
 
+// BootWorkers resumes the DB-backed queues after a restart (queued rows used
+// to sit idle until the next publish API call kicked the worker).
+func (h *Handler) BootWorkers() {
+	kickTTPublisher(h)
+	kickSlicer(h)
+}
+
 func (h *Handler) processPost(p *model.TikTokPost) {
 	failPost := func(format string, args ...interface{}) {
 		h.DB.Model(p).Updates(map[string]interface{}{
 			"status": "failed", "error": truncStr(fmt.Sprintf(format, args...), 490)})
 	}
+
+	// mock mode: exercise the full state machine without touching TikTok —
+	// lets the workspace pipeline be demoed while OAuth app review is pending.
+	if h.Cfg.TikTok.Mock {
+		h.DB.Model(p).Update("status", "uploading")
+		time.Sleep(300 * time.Millisecond)
+		h.DB.Model(p).Update("status", "processing")
+		time.Sleep(700 * time.Millisecond)
+		final := "published"
+		if p.PrivacyLevel == "SELF_ONLY" {
+			final = "delivered"
+		}
+		h.DB.Model(p).Updates(map[string]interface{}{
+			"status": final, "publish_id": fmt.Sprintf("mock-%d-%d", p.ID, time.Now().Unix())})
+		return
+	}
+
 	var acc model.TikTokAccount
 	if h.DB.First(&acc, p.AccountID).Error != nil {
 		failPost("account missing")
@@ -490,7 +561,7 @@ func (h *Handler) processPost(p *model.TikTokPost) {
 	initBody, _ := json.Marshal(map[string]interface{}{
 		"post_info": map[string]interface{}{
 			"title": p.Title, "privacy_level": p.PrivacyLevel,
-			"disable_comment": false, "disable_duet": false, "disable_stitch": false,
+			"disable_comment": p.DisableComment, "disable_duet": p.DisableDuet, "disable_stitch": p.DisableStitch,
 		},
 		"source_info": map[string]interface{}{
 			"source": "FILE_UPLOAD", "video_size": size,

@@ -1,6 +1,8 @@
 package config
 
 import (
+	"os"
+
 	"github.com/spf13/viper"
 )
 
@@ -35,7 +37,14 @@ type Config struct {
 		ClientKey    string `mapstructure:"client_key"`
 		ClientSecret string `mapstructure:"client_secret"`
 		RedirectURL  string `mapstructure:"redirect_url"`
+		StudioBase   string `mapstructure:"studio_base"`
+		Mock         bool   `mapstructure:"mock"`
 	} `mapstructure:"tiktok"`
+
+	FFmpeg struct {
+		Path   string `mapstructure:"path"`
+		TmpDir string `mapstructure:"tmp_dir"`
+	} `mapstructure:"ffmpeg"`
 
 	TkPostAI struct {
 		AppID      string `mapstructure:"appid"`
@@ -73,6 +82,15 @@ func Load(path string) (*Config, error) {
 	}
 	if len(c.App.CheckinRewards) == 0 {
 		c.App.CheckinRewards = []int{50, 50, 50, 50, 50, 50, 99}
+	}
+	if c.TikTok.StudioBase == "" {
+		c.TikTok.StudioBase = "https://studio.likeviewly.com"
+	}
+	if c.FFmpeg.Path == "" {
+		c.FFmpeg.Path = "ffmpeg"
+	}
+	if c.FFmpeg.TmpDir == "" {
+		c.FFmpeg.TmpDir = os.TempDir()
 	}
 	return &c, nil
 }

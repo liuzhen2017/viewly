@@ -28,7 +28,7 @@ WantedBy=multi-user.target
 EOF
 
 sudo apt-get update -qq
-sudo apt-get install -y -qq nginx > /dev/null
+sudo apt-get install -y -qq nginx ffmpeg > /dev/null
 
 sudo tee /etc/nginx/sites-available/viewly > /dev/null <<'EOF'
 server {
@@ -60,6 +60,15 @@ server {
     listen 80;
     server_name admin.likeviewly.com;
     root /var/www/admin;
+    index index.html;
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}
+server {
+    listen 80;
+    server_name studio.likeviewly.com;
+    root /var/www/studio;
     index index.html;
     location / {
         try_files $uri $uri/ /index.html;

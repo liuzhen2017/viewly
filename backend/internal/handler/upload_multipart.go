@@ -44,6 +44,7 @@ func (h *Handler) awsS3(c *gin.Context) (*s3.Client, context.Context, context.Ca
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 15*time.Minute)
 	cfg, err := awsconfig.LoadDefaultConfig(ctx, awsconfig.WithRegion(h.Cfg.AWS.Region))
 	if err != nil {
+		cancel() // vet: don't leak the context on the error path
 		return nil, nil, nil, err
 	}
 	return s3.NewFromConfig(cfg), ctx, cancel, nil

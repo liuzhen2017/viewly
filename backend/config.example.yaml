@@ -19,3 +19,23 @@ app:
   signup_bonus: 60
   # 7-day check-in rewards, index = day 1..7
   checkin_rewards: [50, 50, 50, 50, 50, 50, 99]
+
+aws:
+  region: ap-east-1
+  bucket: cdn.likeviewly.com
+  cdn_base: https://cdn.likeviewly.com
+
+tiktok:
+  client_key: ""
+  client_secret: ""
+  redirect_url: https://api.likeviewly.com/api/tiktok/callback
+  # where the OAuth callback sends the browser back to for the creator workspace
+  studio_base: https://studio.likeviewly.com
+  # dev/demo: run the publish worker without touching TikTok (fake publish ids,
+  # drafts marked delivered). MUST be false once the app passes review.
+  mock: false
+
+ffmpeg:
+  # binary path (apt ffmpeg on the EC2 box) and temp dir for slice jobs
+  path: ffmpeg
+  tmp_dir: /tmp

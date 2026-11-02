@@ -11,6 +11,7 @@
 Cloudflare (DNS+CDN+SSL, 免费版)
    ├── www.likeviewly.com   → H5 前端（Vue3，静态文件）
    ├── admin.likeviewly.com → 管理后台（Vue3 + Element Plus，静态文件）
+   ├── studio.likeviewly.com → 创作者工作台（TK 克隆 MVP，Vue3 + Element Plus，静态文件 /var/www/studio）
    ├── api.likeviewly.com   → Go 后端（Gin，systemd 服务）
    ├── cdn.likeviewly.com   → S3 桶同名直连（视频/图片，CF 缓存规则：视频后缀 边缘1天/浏览器1小时）
    └── upload.likeviewly.com(DNS-only) → 阿里云香港中转(8.218.36.231, nginx 反代) → EC2
@@ -87,20 +88,21 @@ tiktok:
 ## 6. 部署流程（在任一台有代码的电脑）
 
 ```bash
-# 后端（改了 Go 代码）
-cd backend && GOOS=linux GOARCH=amd64 go build -o /tmp/server ./cmd/server
+# 后端（改了 Go 代码；⚠ ARM 机必须 GOARCH=arm64，别照抄旧文档的 amd64）
+cd backend && GOOS=linux GOARCH=arm64 go build -o /tmp/server ./cmd/server
 scp -i ~/.ssh/viewly_hk /tmp/server ubuntu@95.41.49.139:/tmp/server_new
 ssh -i ~/.ssh/viewly_hk ubuntu@95.41.49.139 \
   "sudo mv /opt/viewly/server /opt/viewly/server.bak && sudo mv /tmp/server_new /opt/viewly/server \
    && sudo chmod +x /opt/viewly/server && sudo systemctl restart viewly && sudo systemctl is-active viewly"
 # ⚠️ 重启前确认没有正在进行的视频上传（journalctl -u viewly | grep mp/chunk）
 
-# H5 / 后台（改了前端）
-cd frontend && npm run build     # 或 cd admin && npm run build
+# H5 / 后台 / 工作台（改了前端）
+cd frontend && npm run build     # 或 cd admin && npm run build / cd studio && npm run build
 rsync -az --delete -e "ssh -i ~/.ssh/viewly_hk" dist/ ubuntu@95.41.49.139:/tmp/h5_new
 ssh -i ~/.ssh/viewly_hk ubuntu@95.41.49.139 \
   "sudo rm -rf /var/www/h5_old && sudo mv /var/www/h5 /var/www/h5_old && sudo mv /tmp/h5_new /var/www/h5 && sudo chmod -R o+rX /var/www/h5"
-# admin 同理，路径 /var/www/admin
+# admin 同理，路径 /var/www/admin；studio 同理，路径 /var/www/studio（nginx server 块已在 deploy/server-install.sh）
+# studio 上线一次性：Cloudflare 加 studio A 记录 → certbot -d studio.likeviewly.com
 
 # 验证部署是否生效：curl 页面看新的 chunk 哈希文件名，或 grep 新代码里的字符串字面量
 # （minify 会改函数名，认字符串/路由 chunk 文件最可靠）

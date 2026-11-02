@@ -1,7 +1,7 @@
 // Multi-tenant admin: X-Tenant-Slug selects the tenant site being managed
 // (subdomain in production, localStorage override for local testing).
 // Tokens and the admin role are stored per tenant.
-const RESERVED = new Set(['www', 'admin', 'api', 'cdn'])
+const RESERVED = new Set(['www', 'admin', 'api', 'cdn', 'studio'])
 
 export function tenantSlug() {
   const saved = localStorage.getItem('viewly_tenant')

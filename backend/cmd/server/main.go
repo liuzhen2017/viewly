@@ -34,6 +34,9 @@ func main() {
 	h := handler.New(db, cfg, tz)
 	r := router.Setup(db, cfg, h)
 
+	// resume DB-backed queues (publish + slice) left over from before restart
+	h.BootWorkers()
+
 	addr := fmt.Sprintf(":%d", cfg.Server.Port)
 	log.Printf("viewly backend listening on %s (tz=%s, mock_pay=%v)", addr, cfg.App.Timezone, cfg.Server.MockPay)
 	if err := r.Run(addr); err != nil {
