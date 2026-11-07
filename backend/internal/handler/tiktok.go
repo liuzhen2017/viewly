@@ -552,12 +552,17 @@ func (h *Handler) processPost(p *model.TikTokPost) {
 
 	h.DB.Model(p).Update("status", "uploading")
 
-	// init
-	chunk := int64(ttChunkSize)
-	if size < chunk {
-		chunk = size
+	// init — TikTok rejected our fixed-16MB multi-chunk math with
+	// "total chunk count is invalid"; empirically single-chunk init passes
+	// (chunk_size may be up to 64MB). Use as few chunks as possible:
+	// total = ceil(size/64MB), chunk = ceil(size/total) (>=1, <=64MB).
+	var chunk, total int64
+	if size <= 64*1024*1024 {
+		chunk, total = size, 1
+	} else {
+		total = (size + 64*1024*1024 - 1) / (64 * 1024 * 1024)
+		chunk = (size + total - 1) / total
 	}
-	total := (size + chunk - 1) / chunk
 	initBody, _ := json.Marshal(map[string]interface{}{
 		"post_info": map[string]interface{}{
 			"title": p.Title, "privacy_level": p.PrivacyLevel,
